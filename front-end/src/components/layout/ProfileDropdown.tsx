@@ -14,6 +14,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { profileService } from "@/services/profileService";
 import { MenuFooterImage } from "@/components/layout/MenuFooterImage";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface ProfileDropdownProps {
   userName?: string;
   onLogout?: () => void;
@@ -61,7 +63,7 @@ export default function ProfileDropdown({ userName = "User", onLogout }: Profile
       const authData = getAuthToken();
       if (!authData) { setIsPremium(false); return; }
 
-      const response = await fetch("http://127.0.0.1:8000/api/profile/", {
+      const response = await fetch(`${API_BASE}/api/profile/`, {
         headers: { Authorization: `${authData.type} ${authData.token}` },
       });
 

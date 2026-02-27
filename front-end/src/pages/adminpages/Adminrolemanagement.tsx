@@ -8,6 +8,8 @@ import {
 import { adminService } from '../../services/profileService';
 import { useNotification } from './Notificationsystem';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 type PermissionLevel = 'none' | 'view' | 'edit';
@@ -44,7 +46,7 @@ interface AdminRole {
 
 // ─── API Configuration ────────────────────────────────────────────────────
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/admin/admin-roles/';
+const API_BASE_URL = `${API_BASE}/api/admin/admin-roles/`;
 
 const getAuthHeaders = () => {
   return adminService.getAdminHeaders();

@@ -10,11 +10,13 @@ import { useNavigate } from "react-router-dom";
 import { profileService } from "@/services/profileService";
 import TopBar from "@/components/layout/TopBar";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const TEAL = "#02b2f6";
 const GREEN = "#09cf8b";
 const GRADIENT = "linear-gradient(135deg,#02b2f6,#09cf8b)";
-const API = "http://127.0.0.1:8000/api";
+const API = `${API_BASE}/api`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SettingsPageProps {

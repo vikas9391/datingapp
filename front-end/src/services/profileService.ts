@@ -1,7 +1,9 @@
 // C:\Users\vikas\dating-webapp\front-end\src\services\profileService.ts
 import { OnboardingData } from '../components/onboarding/OnboardingFlow';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+const API_BASE_URL = `${API_BASE}/api`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');

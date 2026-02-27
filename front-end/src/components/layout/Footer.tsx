@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface FooterLink {
   id: number;
   title: string;
@@ -34,7 +36,7 @@ const Footer = () => {
   useEffect(() => {
     const fetchFooterData = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/footer/');
+        const response = await fetch(`${API_BASE}/api/footer/`);
         if (response.ok) {
           const data = await response.json();
           setFooterData(data);

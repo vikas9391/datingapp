@@ -30,6 +30,9 @@ import { Button } from "@/components/ui/button";
 import TopBar from "@/components/layout/TopBar";
 import { profileService, SubscriptionInfo } from "@/services/profileService";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+
 // --- THEME CONSTANTS ---
 const PRIMARY_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B]";
 const TEXT_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B] bg-clip-text text-transparent";
@@ -184,7 +187,7 @@ const PromoCodeInput: React.FC<PromoCodeInputProps> = ({
     try {
       const authData = getAuthToken();
       if (!authData) { setError("Please log in to use promo codes."); return; }
-      const response = await fetch("http://127.0.0.1:8000/api/promo/validate/", {
+      const response = await fetch(`${API_BASE}/api/promo/validate/`, {
         method: "POST",
         headers: {
           Authorization: `${authData.type} ${authData.token}`,
@@ -396,7 +399,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
     try {
       setLoading(true);
       setError(null);
-      const baseUrl = "http://127.0.0.1:8000/api";
+      const baseUrl = `${API_BASE}/api`;
 
       const [plansRes, profileResult] = await Promise.all([
         fetch(`${baseUrl}/admin/premium/plans/`),
@@ -442,7 +445,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
     setProcessing(true);
 
     try {
-      const orderRes = await fetch("http://127.0.0.1:8000/api/create-order/", {
+      const orderRes = await fetch(`${API_BASE}/api/create-order/`, {
         method: "POST",
         headers: {
           Authorization: `${authData.type} ${authData.token}`,
@@ -484,7 +487,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
         description: `${order.plan_name} - ${order.plan_duration}`,
         handler: async (response: any) => {
           try {
-            const verifyRes = await fetch("http://127.0.0.1:8000/api/verify/", {
+            const verifyRes = await fetch(`${API_BASE}/api/verify/`, {
               method: "POST",
               headers: {
                 Authorization: `${authData.type} ${authData.token}`,

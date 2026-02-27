@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useNotification } from './Notificationsystem';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface ExpertTip {
   id: number;
   name: string;
@@ -82,7 +84,7 @@ const ExpertTipsManagement: React.FC = () => {
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/admin/expert-tips/', {
+      const response = await fetch(`${API_BASE}/api/admin/expert-tips/`, {
         headers: { 'Authorization': `Token ${token}` },
       });
 
@@ -139,8 +141,8 @@ const ExpertTipsManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('admin_token');
       const url = isCreating
-        ? 'http://127.0.0.1:8000/api/admin/expert-tips/'
-        : `http://127.0.0.1:8000/api/admin/expert-tips/${tip.id}/`;
+        ? `${API_BASE}/api/admin/expert-tips/`
+        : `/api/admin/expert-tips/${tip.id}/`;
       
       const method = isCreating ? 'POST' : 'PUT';
 
@@ -190,7 +192,7 @@ const ExpertTipsManagement: React.FC = () => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch(
-            `http://127.0.0.1:8000/api/admin/expert-tips/${tip.id}/`,
+            `${API_BASE}/api/admin/expert-tips/${tip.id}/`,
             {
               method: 'DELETE',
               headers: { 'Authorization': `Token ${token}` },
@@ -224,7 +226,7 @@ const ExpertTipsManagement: React.FC = () => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch(
-            `http://127.0.0.1:8000/api/admin/expert-tips/${tip.id}/toggle_active/`,
+            `${API_BASE}/api/admin/expert-tips/${tip.id}/toggle_active/`,
             {
               method: 'POST',
               headers: { 'Authorization': `Token ${token}` },

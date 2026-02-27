@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import TopBar from "@/components/layout/TopBar";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+
 export default function BookingPage() {
   const { id } = useParams(); // cafe id
   const navigate = useNavigate();
@@ -32,7 +35,7 @@ export default function BookingPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/bookings/", {
+      const res = await fetch(`${API_BASE}/api/bookings/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

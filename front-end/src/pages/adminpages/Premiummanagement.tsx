@@ -5,6 +5,8 @@ import {
   Star, Check, Zap, Flame, TrendingUp, Loader, AlertCircle
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface PremiumPlan {
   plan_id: string;
   name: string;
@@ -81,7 +83,7 @@ const PremiumManagement: React.FC = () => {
         return;
       }
 
-      const plansRes = await fetch('http://127.0.0.1:8000/api/admin/premium/plans/', {
+      const plansRes = await fetch(`${API_BASE}/api/admin/premium/plans/`, {
         headers: { 'Authorization': `Token ${token}` },
       });
 
@@ -184,8 +186,8 @@ const PremiumManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('admin_token');
       const url = isCreatingPlan
-        ? 'http://127.0.0.1:8000/api/admin/premium/plans/'
-        : `http://127.0.0.1:8000/api/admin/premium/plans/${plan.plan_id}/`;
+        ? `${API_BASE}/api/admin/premium/plans/`
+        : `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/`;
       
       const method = isCreatingPlan ? 'POST' : 'PUT';
 
@@ -264,7 +266,7 @@ const PremiumManagement: React.FC = () => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch(
-            `http://127.0.0.1:8000/api/admin/premium/plans/${plan.plan_id}/`,
+            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/`,
             {
               method: 'DELETE',
               headers: { 'Authorization': `Token ${token}` },
@@ -302,7 +304,7 @@ const PremiumManagement: React.FC = () => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch(
-            `http://127.0.0.1:8000/api/admin/premium/plans/${plan.plan_id}/toggle_active/`,
+            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_active/`,
             {
               method: 'POST',
               headers: { 'Authorization': `Token ${token}` },
@@ -343,7 +345,7 @@ const PremiumManagement: React.FC = () => {
         try {
           const token = localStorage.getItem('admin_token');
           const response = await fetch(
-            `http://127.0.0.1:8000/api/admin/premium/plans/${plan.plan_id}/toggle_popular/`,
+            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_popular/`,
             {
               method: 'POST',
               headers: { 'Authorization': `Token ${token}` },

@@ -19,6 +19,9 @@ import { cn } from "@/lib/utils";
 
 /* ---------------- TYPES ---------------- */
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+const WS_BASE = API_BASE.replace(/^http/, "ws");
+
 interface ChatUser {
   chat_id: number;
   match_id?: string;
@@ -243,7 +246,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
     const token = localStorage.getItem("access_token");
     if (!token) return;
     try {
-      await fetch(`http://127.0.0.1:8000/api/chats/${chatId}/read/`, {
+      await fetch(`${API_BASE}/api/chats/${chatId}/read/`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -262,7 +265,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
         const token = localStorage.getItem("access_token");
         if (!token) return;
 
-        const res = await fetch("http://127.0.0.1:8000/api/chats/matched/", {
+        const res = await fetch(`${API_BASE}/api/chats/matched/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch chats");
@@ -296,9 +299,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const ws = new WebSocket(
-      `ws://127.0.0.1:8000/ws/notifications/?token=${token}`
-    );
+    const ws = new WebSocket(`${WS_BASE}/ws/notifications/?token=${token}`);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "presence" && data.user_email) {
@@ -321,7 +322,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
         if (!token) return;
 
         const res = await fetch(
-          `http://127.0.0.1:8000/api/chats/${selectedChat}/messages/`,
+          `${API_BASE}/api/chats/${selectedChat}/messages/`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error("Failed to load messages");
@@ -372,9 +373,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const ws = new WebSocket(
-      `ws://127.0.0.1:8000/ws/chat/${selectedChat}/?token=${token}`
-    );
+    const ws = new WebSocket(`${WS_BASE}/ws/chat/${selectedChat}/?token=${token}`);
     socketRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -502,7 +501,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
     );
     setShowBlockModal(false);
     try {
-      await fetch("http://127.0.0.1:8000/api/users/block/", {
+      await fetch(`${API_BASE}/api/users/block/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -523,7 +522,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
       )
     );
     try {
-      await fetch("http://127.0.0.1:8000/api/users/unblock/", {
+      await fetch(`${API_BASE}/api/users/unblock/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -550,7 +549,7 @@ export default function ChatsPage({ onLogout }: ChatsPageProps) {
     const reasonLabel = REPORT_REASONS.find((r) => r.id === selectedReason)?.label ?? selectedReason;
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/reports/", {
+      const res = await fetch(`${API_BASE}/api/reports/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

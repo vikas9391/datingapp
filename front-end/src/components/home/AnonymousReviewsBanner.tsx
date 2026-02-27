@@ -2,6 +2,8 @@ import { Star, Quote, Shield, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface Review {
   id: number;
   username: string;
@@ -21,7 +23,7 @@ export const AnonymousReviewsBanner = () => {
   const fetchApprovedReviews = async () => {
     try {
       // Fetch only approved reviews, limit to 2 for the banner
-      const response = await fetch('http://127.0.0.1:8000/api/reviews/approved/?limit=2');
+      const response = await fetch(`${API_BASE}/api/reviews/approved/?limit=2`);
       if (response.ok) {
         const data = await response.json();
         setReviews(data.results || data); // Handle both paginated and direct array responses

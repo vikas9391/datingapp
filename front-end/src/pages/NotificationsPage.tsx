@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const PRIMARY_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B]";
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+
 
 type NotificationType = "MATCH_CREATED" | "NEW_MESSAGE" | "LIKE_RECEIVED" | "match";
 
@@ -127,7 +128,7 @@ export default function NotificationsPage({ onLogout }: { onLogout?: () => void 
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/notifications/all/`, {
+      const res = await fetch(`${API_BASE}/api/notifications/all/`, {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -146,7 +147,7 @@ export default function NotificationsPage({ onLogout }: { onLogout?: () => void 
       await fetchNotifications();
       setTimeout(async () => {
         try {
-          const res = await fetch(`${API_BASE}/notifications/read-all/`, {
+          const res = await fetch(`${API_BASE}/api/notifications/read-all/`, {
             method: "POST",
             headers: authHeaders(),
           });
@@ -164,7 +165,7 @@ export default function NotificationsPage({ onLogout }: { onLogout?: () => void 
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
     try {
-      const res = await fetch(`${API_BASE}/notifications/read/`, {
+      const res = await fetch(`${API_BASE}/api/notifications/read/`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ notification_id: id }),
@@ -235,7 +236,7 @@ export default function NotificationsPage({ onLogout }: { onLogout?: () => void 
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/notifications/read-all/`, {
+      const res = await fetch(`${API_BASE}/api/notifications/read-all/`, {
         method: "POST",
         headers: authHeaders(),
       });

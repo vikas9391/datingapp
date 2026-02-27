@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { MapPin, Loader, Navigation } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
   const jwtKeys = ["access_token", "accessToken", "jwt", "access"];
   const tokenKeys = ["token", "authToken", "auth_token", "admin_token"];
@@ -125,7 +127,7 @@ const NearbyBanner: React.FC = () => {
           const authData = getAuthToken();
           if (!authData) { setState({ status: "error", message: "Not logged in" }); return; }
 
-          const res = await fetch("http://127.0.0.1:8000/api/nearby/", {
+          const res = await fetch(`${API_BASE}/api/nearby/`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

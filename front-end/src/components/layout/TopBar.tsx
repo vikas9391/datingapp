@@ -10,7 +10,7 @@ interface TopBarProps {
 }
 
 const PRIMARY_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B]";
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
   const jwtKeys = ["access_token", "accessToken", "jwt", "access"];

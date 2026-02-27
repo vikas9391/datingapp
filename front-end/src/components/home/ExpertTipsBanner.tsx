@@ -12,6 +12,7 @@ const ICON_MAP: { [key: string]: any } = {
   'users': Users,
   'trending-up': TrendingUp,
 };
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 interface ExpertTip {
   id: number;
@@ -56,7 +57,7 @@ export default function ExpertTipsBanner() {
 
   const fetchExpertTips = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/expert-tips/?limit=3');
+      const response = await fetch(`${API_BASE}/api/expert-tips/?limit=3`);
       if (response.ok) {
         const data = await response.json();
         setExperts(data);
@@ -70,7 +71,7 @@ export default function ExpertTipsBanner() {
 
   const fetchAllExpertTips = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/expert-tips/');
+      const response = await fetch(`${API_BASE}/api/expert-tips/`);
       if (response.ok) {
         const data = await response.json();
         setAllExperts(data);

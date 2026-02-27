@@ -21,6 +21,11 @@ import SwipeInfoModal from "@/components/home/SwipeInfoModal";
 /* ---------------- SERVICES & TYPES ---------------- */
 import { profileService } from "@/services/profileService";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+const WS_BASE  = API_BASE.replace(/^http/, "ws");
+
+
+
 interface MatchApiResponse {
   similarity: number;
   profile: {
@@ -47,11 +52,10 @@ interface HomePageProps {
 }
 
 /* ---------------- CONSTANTS ---------------- */
-const FREE_SWIPE_LIMIT = 3;
-const WELCOME_SHOWN_KEY = "swipe_welcome_shown";
+const FREE_SWIPE_LIMIT    = 3;
+const WELCOME_SHOWN_KEY   = "swipe_welcome_shown";
 const LAST_SWIPE_WARNED_KEY = "last_swipe_warned";
-const PAYWALL_SHOWN_KEY = "swipe_paywall_shown"; // sessionStorage key
-const API_BASE = "http://127.0.0.1:8000";
+const PAYWALL_SHOWN_KEY   = "swipe_paywall_shown";
 
 /* ---------------- UTILS ---------------- */
 const getRandomInterests = (interests: string[], count = 4) => {
@@ -205,7 +209,6 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
         if (!premium && serverSwipesUsed >= FREE_SWIPE_LIMIT) {
           setDeckLocked(true);
-          // Don't show paywall on load — only show it when they actively try to swipe
         }
       } catch (err) {
         console.error("Error fetching user profile:", err);
@@ -272,7 +275,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/?token=${token}`);
+    const ws = new WebSocket(`${WS_BASE}/ws/notifications/?token=${token}`);
 
     ws.onmessage = async (event) => {
       const data = JSON.parse(event.data);

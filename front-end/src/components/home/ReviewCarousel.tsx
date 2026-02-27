@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Quote, Loader, X, Calendar } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface Review {
   id: number;
   rating: number;
@@ -173,7 +175,7 @@ export default function ReviewCarousel() {
   const fetchApprovedReviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/reviews/approved/');
+      const response = await fetch(`${API_BASE}/api/reviews/approved/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch reviews');

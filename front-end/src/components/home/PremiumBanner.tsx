@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
   const jwtKeys = ["access_token", "accessToken", "jwt", "access"];
   const tokenKeys = ["token", "authToken", "auth_token", "admin_token"];
@@ -25,7 +27,7 @@ const PremiumBanner: React.FC = () => {
         const authData = getAuthToken();
         if (!authData) { setIsPremium(false); return; }
 
-        const response = await fetch("http://127.0.0.1:8000/api/profile/", {
+        const response = await fetch(`${API_BASE}/api/profile/`, {
           headers: { Authorization: `${authData.type} ${authData.token}` },
         });
 

@@ -9,6 +9,8 @@ import { useNotification } from './Notificationsystem';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 interface FooterLink {
   id: number;
   title: string;
@@ -38,7 +40,7 @@ interface FooterSettings {
 
 // ─── API Configuration ────────────────────────────────────────────────────
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/admin/footer';
+const API_BASE_URL = `${API_BASE}/api/admin/footer`;
 
 const getAuthHeaders = () => adminService.getAdminHeaders();
 
