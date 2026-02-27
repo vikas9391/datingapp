@@ -119,6 +119,12 @@ class UserAuth(models.Model):
     google_id = models.CharField(max_length=200, blank=True, null=True)
     name = models.CharField(max_length=200, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+
+    # Consent fields
+    agreed_to_terms = models.BooleanField(default=False)
+    age_confirmed   = models.BooleanField(default=False)
+    consent_at      = models.DateTimeField(null=True, blank=True)  # timestamp of agreement
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -130,9 +136,11 @@ class UserAuth(models.Model):
             "google_id": self.google_id,
             "name": self.name,
             "is_verified": self.is_verified,
+            "agreed_to_terms": self.agreed_to_terms,
+            "age_confirmed": self.age_confirmed,
+            "consent_at": self.consent_at.isoformat() if self.consent_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
-
 
 class MySQLAuthManager:
     """Drop-in replacement for FirebaseAuthManager."""
@@ -151,7 +159,8 @@ class MySQLAuthManager:
         if "is_verified" not in extra:
             extra["is_verified"] = False
 
-        allowed = {"django_user_id", "google_id", "name", "is_verified"}
+        allowed = {"django_user_id", "google_id", "name", "is_verified",
+                   "agreed_to_terms", "age_confirmed", "consent_at"}
         for key in allowed:
             if key in extra:
                 defaults[key] = extra[key]
@@ -159,7 +168,6 @@ class MySQLAuthManager:
 
         obj, _ = UserAuth.objects.update_or_create(email=email, defaults=defaults)
         return str(obj.pk)
-
 
 class NotificationPreference(models.Model):
     """

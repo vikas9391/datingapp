@@ -16,15 +16,18 @@ class MySQLLikeManager:
         if Like.objects.filter(from_email=from_email, to_email=to_email).exists():
             return {"status": "already_liked"}
 
+        # Save the like first so both likes exist before deleting
+        Like.objects.create(from_email=from_email, to_email=to_email)
+
         if Like.objects.filter(from_email=to_email, to_email=from_email).exists():
             match = MySQLMatchManager.create_match(from_email, to_email)
+            # Now both likes exist and both get deleted cleanly
             Like.objects.filter(
                 Q(from_email=from_email, to_email=to_email) |
                 Q(from_email=to_email, to_email=from_email)
             ).delete()
             return {"status": "matched", "match": match}
 
-        Like.objects.create(from_email=from_email, to_email=to_email)
         return {"status": "liked"}
 
 class MySQLMatchManager:

@@ -59,6 +59,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'profile_complete',
             'verified',
             'premium',
+            'premium_plan',           # ← ADDED
+            'premium_activated_at',   # ← ADDED
+            'premium_expires_at',     # ← ADDED
             'swipes_used',
         ]
         read_only_fields = [
@@ -71,6 +74,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'last_active',
             'completion_percentage',
             'matches_count',
+            'premium_plan',           # ← ADDED
+            'premium_activated_at',   # ← ADDED
+            'premium_expires_at',     # ← ADDED
         ]
 
     # ── computed fields ────────────────────────────────────────────────────────
@@ -80,11 +86,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return obj.user.date_joined.isoformat() if obj.user.date_joined else None
 
     def get_matches_count(self, obj):
-        """
-        Count active matches from the Match table.
-        Avoids relying on the manually-maintained UserProfile.matches integer.
-        Import is local to avoid circular imports between apps.
-        """
         try:
             from login.models import Match
             from django.db.models import Q
@@ -94,8 +95,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 status="active",
             ).count()
         except Exception:
-            # Graceful fallback: use the stored integer if the Match table
-            # is unavailable for any reason (migrations not run, etc.)
             return obj.matches or 0
 
     # ── validators ────────────────────────────────────────────────────────────

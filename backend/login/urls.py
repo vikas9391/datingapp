@@ -25,7 +25,7 @@ urlpatterns = [
 
     # ========== CHATS ==========
     path("chats/matched/", views.MatchedChatsView.as_view(), name="matched-chats"),
-    path("chats/unread-count/", views.UnreadChatCountView.as_view(), name="chat-unread-count"),  # ← NEW
+    path("chats/unread-count/", views.UnreadChatCountView.as_view(), name="chat-unread-count"),
     path("chats/<str:chat_id>/messages/", views.ChatMessagesView.as_view(), name="chat-messages"),
     path("chats/<str:chat_id>/send/", views.SendChatMessageView.as_view(), name="send-message"),
     path("chats/<str:chat_id>/read/", views.MarkChatReadView.as_view(), name="mark-read"),
@@ -33,6 +33,7 @@ urlpatterns = [
     # ========== USERS ==========
     path("users/block/", views.BlockUserView.as_view(), name="block-user"),
     path("users/unblock/", views.UnblockUserView.as_view(), name="unblock-user"),
+    path("users/blocked/", views.BlockedUsersListView.as_view(), name="blocked-users-list"),
 
     # ========== REPORTS ==========
     path("reports/", views.CreateUserReportView.as_view(), name="create-report"),
@@ -52,12 +53,13 @@ urlpatterns = [
     path("notifications/read/", views.MarkNotificationReadView.as_view(), name="notification-read"),
     path("notifications/read-all/", views.MarkAllNotificationsReadView.as_view(), name="notification-read-all"),
     path("notifications/unread-count/", views.UnreadNotificationCountView.as_view(), name="notification-unread-count"),
+    path("notifications/preferences/", views.NotificationPreferencesView.as_view(), name="notification-preferences"),
 
     # ========== PRIVACY ==========
     path("privacy/preferences/", views.PrivacyPreferencesView.as_view(), name="privacy-preferences"),
     path("privacy/export/", views.RequestDataExportView.as_view(), name="data-export"),
     path("privacy/delete-account/", views.DeleteAccountView.as_view(), name="delete-account"),
 
-    # ========== USERS (additions) ==========
-    path("users/blocked/", views.BlockedUsersListView.as_view(), name="blocked-users-list"),
+    # ========== CONTACT / SUPPORT ==========
+    path("contact/", views.ContactSupportView.as_view(), name="contact-support"),
 ]

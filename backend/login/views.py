@@ -375,11 +375,22 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get("username")
-        password = request.data.get("password")
+        from django.utils import timezone
+
+        username        = request.data.get("username")
+        password        = request.data.get("password")
+        agreed_to_terms = request.data.get("agreed_to_terms", False)
+        age_confirmed   = request.data.get("age_confirmed", False)
 
         if not username or not password:
             return Response({"detail": "Username and password required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Enforce consent — must agree before account is created
+        if not agreed_to_terms:
+            return Response({"detail": "You must agree to the Terms of Service and Privacy Policy"}, status=status.HTTP_400_BAD_REQUEST)
+        if not age_confirmed:
+            return Response({"detail": "You must confirm that you are 18 years or older"}, status=status.HTTP_400_BAD_REQUEST)
+
         if User.objects.filter(username=username).exists():
             return Response({"detail": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -390,6 +401,9 @@ class RegisterView(APIView):
             auth_provider="email",
             django_user_id=str(user.pk),
             is_verified=False,
+            agreed_to_terms=True,
+            age_confirmed=True,
+            consent_at=timezone.now(),
         )
 
         return Response(
@@ -401,7 +415,6 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -1714,3 +1727,92 @@ class DeleteAccountView(APIView):
             user.delete()
 
         return Response({"status": "account_deleted"}, status=status.HTTP_200_OK)
+    
+class ContactSupportView(APIView):
+    """
+    POST /api/contact/
+    Accepts a contact form submission and sends an email to the support team.
+    No authentication required so anyone (including logged-out users) can reach support.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        name    = request.data.get("name", "").strip()
+        email   = request.data.get("email", "").strip()
+        subject = request.data.get("subject", "General Inquiry").strip()
+        message = request.data.get("message", "").strip()
+
+        if not name or not email or not message:
+            return Response(
+                {"detail": "name, email, and message are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Rate-limit: max 3 submissions per email per hour
+        rate_key = f"contact_form_{email}"
+        count = cache.get(rate_key, 0)
+        if count >= 3:
+            return Response(
+                {"detail": "Too many submissions. Please wait before trying again."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        cache.set(rate_key, count + 1, timeout=3600)
+
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", settings.EMAIL_HOST_USER)
+        support_email = getattr(settings, "SUPPORT_EMAIL", from_email)
+
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Helvetica, Arial, sans-serif; background: #f9f9f9; padding: 40px 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; border: 1px solid #e6e6e6;">
+            <h2 style="margin: 0 0 24px; color: #111;">New Contact Form Submission</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #555; font-size: 14px; width: 100px;"><strong>Name</strong></td>
+                <td style="padding: 8px 0; color: #111; font-size: 14px;">{name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #555; font-size: 14px;"><strong>Email</strong></td>
+                <td style="padding: 8px 0; color: #111; font-size: 14px;"><a href="mailto:{email}" style="color: #0095E0;">{email}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #555; font-size: 14px;"><strong>Subject</strong></td>
+                <td style="padding: 8px 0; color: #111; font-size: 14px;">{subject}</td>
+              </tr>
+            </table>
+            <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 24px 0;" />
+            <h3 style="margin: 0 0 12px; color: #111; font-size: 15px;">Message</h3>
+            <p style="color: #444; font-size: 15px; line-height: 1.6; white-space: pre-wrap; margin: 0;">{message}</p>
+            <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 24px 0;" />
+            <p style="color: #999; font-size: 12px; margin: 0;">Sent via The Dating App contact form</p>
+          </div>
+        </body>
+        </html>
+        """
+
+        plain_body = (
+            f"Name: {name}\nEmail: {email}\nSubject: {subject}\n\nMessage:\n{message}"
+        )
+
+        try:
+            send_mail(
+                subject=f"[Support] {subject} — from {name}",
+                message=plain_body,
+                from_email=from_email,
+                recipient_list=[support_email],
+                html_message=html_body,
+            )
+        except Exception as exc:
+            # Log but don't expose the error to the client
+            import logging
+            logging.getLogger(__name__).error("Contact form email failed: %s", exc)
+            return Response(
+                {"detail": "Failed to send message. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {"message": "Your message has been received. We'll get back to you within 24 hours."},
+            status=status.HTTP_200_OK,
+        )

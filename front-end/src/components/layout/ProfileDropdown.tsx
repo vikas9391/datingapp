@@ -160,7 +160,7 @@ export default function ProfileDropdown({ userName = "User", onLogout }: Profile
                 <div className="p-1.5 bg-gray-100 rounded-xl text-gray-500">
                   <User className="w-4 h-4" />
                 </div>
-                Profile Settings
+                Profile
               </Link>
 
               <Link
