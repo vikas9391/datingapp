@@ -487,7 +487,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
         description: `${order.plan_name} - ${order.plan_duration}`,
         handler: async (response: any) => {
           try {
-            const verifyRes = await fetch(`${API_BASE}/api/verify/`, {
+            const verifyRes = await fetch(`${API_BASE}/api/verify-payment/`, {
               method: "POST",
               headers: {
                 Authorization: `${authData.type} ${authData.token}`,
