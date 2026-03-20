@@ -3,17 +3,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-
 from django.db import transaction
 from django.db.models import F, Q
-
 from .models import UserProfile
 from .serializers import UserProfileSerializer
 from .managers import MySQLProfileManager as FirebaseProfileManager
-
+from admin_panel.models import PremiumPlan 
+from django.utils import timezone
 
 FREE_SWIPE_LIMIT = 3
-
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -40,21 +38,57 @@ def _sync_matches_count(profile: UserProfile) -> int:
 
 # ── swipe endpoints ────────────────────────────────────────────────────────────
 
+from admin_panel.models import PremiumPlan  # ADD this import at the top
+
+FREE_SWIPE_LIMIT = 3
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_swipe_count(request):
     try:
         profile = UserProfile.objects.get(user=request.user)
+
+        is_premium = (
+            profile.premium
+            and hasattr(profile, 'premium_expires_at')
+            and profile.premium_expires_at
+            and profile.premium_expires_at > timezone.now()
+        )
+
+        # Determine the effective daily limit for this user
+        effective_limit = None  # None = unlimited
+        if is_premium:
+            try:
+                plan = PremiumPlan.objects.get(name=profile.premium_plan)
+                effective_limit = plan.daily_swipe_limit  # None = unlimited
+            except PremiumPlan.DoesNotExist:
+                pass
+        else:
+            effective_limit = FREE_SWIPE_LIMIT
+
+        swipes_used = profile.swipes_used or 0
+
         return Response({
-            'swipes_used': profile.swipes_used,
-            'swipes_remaining': max(0, FREE_SWIPE_LIMIT - profile.swipes_used),
-            'limit_reached': profile.swipes_used >= FREE_SWIPE_LIMIT and not profile.premium,
+            'swipes_used': swipes_used,
+            'swipes_remaining': (
+                max(0, effective_limit - swipes_used)
+                if effective_limit is not None
+                else None  # None means unlimited
+            ),
+            'limit_reached': (
+                effective_limit is not None and swipes_used >= effective_limit
+            ),
+            'is_premium': is_premium,
+            'daily_limit': effective_limit,  # frontend can show "X of Y used"
         })
     except UserProfile.DoesNotExist:
         return Response({
             'swipes_used': 0,
             'swipes_remaining': FREE_SWIPE_LIMIT,
             'limit_reached': False,
+            'is_premium': False,
+            'daily_limit': FREE_SWIPE_LIMIT,
         })
 
 
@@ -65,31 +99,79 @@ def increment_swipe_count(request):
         with transaction.atomic():
             profile = UserProfile.objects.select_for_update().get(user=request.user)
 
-            # Premium users bypass the gate — still track but don't block
-            if not profile.premium and profile.swipes_used >= FREE_SWIPE_LIMIT:
-                return Response(
-                    {'error': 'Swipe limit reached. Upgrade to Premium.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            is_premium = (
+                profile.premium
+                and hasattr(profile, 'premium_expires_at')
+                and profile.premium_expires_at
+                and profile.premium_expires_at > timezone.now()
+            )
 
+            swipes_used = profile.swipes_used or 0
+
+            if is_premium:
+                # ── Premium: check plan's daily_swipe_limit ───────────────
+                try:
+                    plan = PremiumPlan.objects.get(name=profile.premium_plan)
+
+                    if plan.daily_swipe_limit is not None:
+                        if swipes_used >= plan.daily_swipe_limit:
+                            return Response(
+                                {
+                                    'error': f'Daily swipe limit of {plan.daily_swipe_limit} reached for your {plan.name} plan.',
+                                    'swipes_used': swipes_used,
+                                    'limit': plan.daily_swipe_limit,
+                                },
+                                status=status.HTTP_403_FORBIDDEN,
+                            )
+                    # daily_swipe_limit is None = unlimited, fall through
+
+                except PremiumPlan.DoesNotExist:
+                    pass  # Plan not found — allow the swipe
+
+            else:
+                # ── Free user: hard cap at FREE_SWIPE_LIMIT ───────────────
+                if swipes_used >= FREE_SWIPE_LIMIT:
+                    return Response(
+                        {
+                            'error': 'Swipe limit reached. Upgrade to Premium.',
+                            'swipes_used': swipes_used,
+                            'limit': FREE_SWIPE_LIMIT,
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+            # ── Record the swipe ──────────────────────────────────────────
             profile.swipes_used = F('swipes_used') + 1
             profile.save(update_fields=['swipes_used'])
             profile.refresh_from_db()
 
+            new_count = profile.swipes_used or 0
+
+            effective_limit = FREE_SWIPE_LIMIT if not is_premium else (
+                PremiumPlan.objects.filter(name=profile.premium_plan)
+                .values_list('daily_swipe_limit', flat=True)
+                .first()
+            )
+
             return Response({
-                'swipes_used': profile.swipes_used,
-                'swipes_remaining': max(0, FREE_SWIPE_LIMIT - profile.swipes_used),
-                'limit_reached': (
-                    profile.swipes_used >= FREE_SWIPE_LIMIT and not profile.premium
+                'swipes_used': new_count,
+                'swipes_remaining': (
+                    max(0, effective_limit - new_count)
+                    if effective_limit is not None
+                    else None
                 ),
+                'limit_reached': (
+                    effective_limit is not None and new_count >= effective_limit
+                ),
+                'is_premium': is_premium,
+                'daily_limit': effective_limit,
             })
+
     except UserProfile.DoesNotExist:
         return Response(
             {'error': 'Profile not found'},
             status=status.HTTP_404_NOT_FOUND,
         )
-
-
 # ── primary profile CRUD ───────────────────────────────────────────────────────
 
 @api_view(['GET'])

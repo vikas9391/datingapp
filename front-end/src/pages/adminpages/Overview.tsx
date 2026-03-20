@@ -1,10 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, Activity, Heart, AlertTriangle, RefreshCw, Loader, X,
-  TrendingUp, MessageCircle, ShieldCheck, Crown, ChevronDown, ChevronUp
+  TrendingUp, MessageCircle, ShieldCheck, Crown, ChevronDown, ChevronUp,
+  ExternalLink, Globe,
 } from 'lucide-react';
 import { adminService } from '../../services/profileService';
 import { useNotification } from './Notificationsystem';
+
+// ─── IMPORTANT: paste this into your sidebar/left-panel component ─────────────
+//
+// import { ViewWebsiteButton } from './Overview';   // or wherever you export from
+//
+// Then inside your sidebar JSX (near the bottom, above logout):
+//
+//   <ViewWebsiteButton />
+//
+// It reads VITE_FRONTEND_URL from your .env (same origin as the dating app).
+// Falls back to window.location.origin if not set.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FRONTEND_URL =
+  (import.meta as any).env?.VITE_FRONTEND_URL ||
+  (typeof window !== 'undefined' ? window.location.origin.replace(':5174', ':5173') : '#');
+
+// ── Exported so the sidebar can import it directly ────────────────────────────
+export const ViewWebsiteButton: React.FC<{ collapsed?: boolean }> = ({ collapsed = false }) => (
+  <a
+    href={FRONTEND_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={`
+      group flex items-center gap-3 px-3 py-2.5 rounded-xl
+      bg-gradient-to-r from-teal-500/10 to-blue-500/10
+      border border-teal-200/60 hover:border-teal-400/80
+      text-teal-700 hover:text-teal-800
+      transition-all duration-200 hover:shadow-sm hover:shadow-teal-500/10
+      ${collapsed ? 'justify-center' : ''}
+    `}
+    title="View Website"
+  >
+    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center shrink-0 shadow-sm">
+      <Globe className="w-3.5 h-3.5 text-white" />
+    </div>
+    {!collapsed && (
+      <>
+        <span className="text-sm font-semibold flex-1">View Website</span>
+        <ExternalLink className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+      </>
+    )}
+  </a>
+);
+
+// ── Small inline banner used at the top of Overview (always visible) ──────────
+const ViewWebsiteBanner: React.FC = () => (
+  <a
+    href={FRONTEND_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="
+      group mx-4 flex items-center gap-3 px-4 py-3 rounded-2xl
+      bg-gradient-to-r from-teal-50 via-white to-blue-50
+      border border-teal-100 hover:border-teal-300
+      shadow-sm hover:shadow-md hover:shadow-teal-500/10
+      transition-all duration-200
+    "
+  >
+    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center shrink-0 shadow-md shadow-teal-500/20">
+      <Globe className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-bold text-gray-900 leading-none mb-0.5">View Website</p>
+      <p className="text-xs text-gray-400 truncate">{FRONTEND_URL}</p>
+    </div>
+    <div className="flex items-center gap-1.5 shrink-0">
+      <span className="text-xs font-semibold text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">
+        Live
+      </span>
+      <ExternalLink className="w-4 h-4 text-teal-400 group-hover:text-teal-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+    </div>
+  </a>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface DashboardStats {
   totalUsers: number;
@@ -144,6 +221,9 @@ const Overview: React.FC = () => {
         </button>
       </div>
 
+      {/* ── View Website Banner ── */}
+      <ViewWebsiteBanner />
+
       {/* Primary Stats — 2×2 grid */}
       <div className="px-4 grid grid-cols-2 gap-3">
         <StatCard
@@ -177,7 +257,7 @@ const Overview: React.FC = () => {
         />
       </div>
 
-      {/* New Registrations — horizontal strip */}
+      {/* New Registrations */}
       <div className="mx-4 bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-4 text-white">
         <p className="text-xs font-semibold uppercase tracking-wider opacity-80 mb-3">
           New Registrations
@@ -198,9 +278,9 @@ const Overview: React.FC = () => {
         </div>
       </div>
 
-      {/* Secondary Stats — horizontal scrollable row */}
+      {/* Secondary Stats */}
       <div className="px-4">
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-0 scrollbar-hide">
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
           <MiniStatCard
             icon={<MessageCircle className="w-4 h-4 text-purple-500" />}
             value={stats.totalMessages.toLocaleString()}
@@ -308,7 +388,7 @@ const Overview: React.FC = () => {
   );
 };
 
-// ─── Stat Card (2-col grid) ───────────────────────────────────────────────────
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard: React.FC<{
   icon: React.ReactNode;
   bgColor: string;
@@ -329,7 +409,7 @@ const StatCard: React.FC<{
   </div>
 );
 
-// ─── Mini Stat Card (horizontal scroll row) ──────────────────────────────────
+// ─── Mini Stat Card ───────────────────────────────────────────────────────────
 const MiniStatCard: React.FC<{
   icon: React.ReactNode;
   value: string;

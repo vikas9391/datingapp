@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from './Notificationsystem';
 import {
   Crown, Plus, Edit2, Trash2, Save, X, Eye, EyeOff,
-  Star, Check, Zap, Flame, TrendingUp, Loader, AlertCircle
+  Star, Check, Zap, Flame, TrendingUp, Loader, AlertCircle,
+  Infinity, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
@@ -23,7 +24,10 @@ interface PremiumPlan {
   features: string[];
   active: boolean;
   display_order: number;
-  calculation_months?: number; // NEW: Custom months for calculation
+  calculation_months?: number;
+  // ── NEW ──────────────────────────────────────────────────────────────
+  daily_swipe_limit: number | null;       // null = unlimited
+  monthly_connection_limit: number | null; // null = unlimited
 }
 
 const ICON_OPTIONS = [
@@ -49,36 +53,36 @@ const PLAN_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual', months: 12 },
 ];
 
-// Common month options
 const MONTH_OPTIONS = [1, 3, 6, 12];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PremiumManagement: React.FC = () => {
   const { showSuccess, showError, showWarning, confirm } = useNotification();
-  
+
   const [plans, setPlans] = useState<PremiumPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Plan editing
+
   const [editingPlan, setEditingPlan] = useState<PremiumPlan | null>(null);
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem('admin_token');
-      
+
       if (!token) {
-        const errorMsg = 'No authentication token found';
-        setError(errorMsg);
-        showError('Authentication Error', errorMsg);
+        const msg = 'No authentication token found';
+        setError(msg);
+        showError('Authentication Error', msg);
         setLoading(false);
         return;
       }
@@ -87,53 +91,47 @@ const PremiumManagement: React.FC = () => {
         headers: { 'Authorization': `Token ${token}` },
       });
 
-      if (!plansRes.ok) {
-        throw new Error('Failed to fetch premium data');
-      }
+      if (!plansRes.ok) throw new Error('Failed to fetch premium data');
 
       const plansData = await plansRes.json();
 
-      console.log('Plans API Response:', plansData);
-
-      // Handle different response formats
       let processedPlans: PremiumPlan[] = [];
-
       if (Array.isArray(plansData)) {
         processedPlans = plansData;
-      } else if (plansData && typeof plansData === 'object' && Array.isArray(plansData.results)) {
+      } else if (plansData?.results && Array.isArray(plansData.results)) {
         processedPlans = plansData.results;
-      } else if (plansData && typeof plansData === 'object' && Array.isArray(plansData.data)) {
+      } else if (plansData?.data && Array.isArray(plansData.data)) {
         processedPlans = plansData.data;
-      } else if (plansData && typeof plansData === 'object' && plansData.plan_id) {
+      } else if (plansData?.plan_id) {
         processedPlans = [plansData];
       }
 
-      // Ensure numeric fields are numbers, not strings
       processedPlans = processedPlans.map(plan => {
         const planTypeMonths = PLAN_TYPE_OPTIONS.find(opt => opt.value === plan.plan_type)?.months || 1;
-        
         return {
           ...plan,
           price: typeof plan.price === 'string' ? parseFloat(plan.price) : plan.price,
-          original_price: plan.original_price ? (typeof plan.original_price === 'string' ? parseFloat(plan.original_price) : plan.original_price) : undefined,
+          original_price: plan.original_price
+            ? (typeof plan.original_price === 'string' ? parseFloat(plan.original_price) : plan.original_price)
+            : undefined,
           price_per_month: typeof plan.price_per_month === 'string' ? parseFloat(plan.price_per_month) : plan.price_per_month,
           display_order: typeof plan.display_order === 'string' ? parseInt(plan.display_order) : plan.display_order,
           features: Array.isArray(plan.features) ? plan.features : [],
-          // Set calculation_months based on plan type if not explicitly set
           calculation_months: plan.calculation_months || planTypeMonths,
+          // ── Normalize new limit fields ──
+          daily_swipe_limit: plan.daily_swipe_limit ?? null,
+          monthly_connection_limit: plan.monthly_connection_limit ?? null,
         };
       });
 
-      // Sort by display_order
       processedPlans.sort((a, b) => a.display_order - b.display_order);
-
       setPlans(processedPlans);
 
-    } catch (error) {
-      console.error('Error fetching premium data:', error);
-      const errorMsg = 'Failed to load premium data. Please try again.';
-      setError(errorMsg);
-      showError('Load Failed', errorMsg);
+    } catch (err) {
+      console.error('Error fetching premium data:', err);
+      const msg = 'Failed to load premium data. Please try again.';
+      setError(msg);
+      showError('Load Failed', msg);
     } finally {
       setLoading(false);
     }
@@ -141,40 +139,23 @@ const PremiumManagement: React.FC = () => {
 
   const validatePlan = (plan: PremiumPlan): string[] => {
     const errors: string[] = [];
-
-    if (!plan.plan_id || plan.plan_id.trim() === '') {
-      errors.push('Plan ID is required');
-    }
-
-    if (!plan.name || plan.name.trim() === '') {
-      errors.push('Plan name is required');
-    }
-
-    if (!plan.duration || plan.duration.trim() === '') {
-      errors.push('Duration is required');
-    }
-
-    if (plan.price <= 0) {
-      errors.push('Price must be greater than 0');
-    }
-
-    if (plan.original_price && plan.original_price <= plan.price) {
+    if (!plan.plan_id?.trim()) errors.push('Plan ID is required');
+    if (!plan.name?.trim()) errors.push('Plan name is required');
+    if (!plan.duration?.trim()) errors.push('Duration is required');
+    if (plan.price <= 0) errors.push('Price must be greater than 0');
+    if (plan.original_price && plan.original_price <= plan.price)
       errors.push('Original price must be greater than current price');
-    }
-
-    if (!plan.plan_type) {
-      errors.push('Plan type is required');
-    }
-
-    if (!plan.calculation_months || plan.calculation_months <= 0) {
+    if (!plan.plan_type) errors.push('Plan type is required');
+    if (!plan.calculation_months || plan.calculation_months <= 0)
       errors.push('Number of months for calculation is required');
-    }
-
+    if (plan.daily_swipe_limit !== null && plan.daily_swipe_limit < 1)
+      errors.push('Daily swipe limit must be at least 1');
+    if (plan.monthly_connection_limit !== null && plan.monthly_connection_limit < 1)
+      errors.push('Monthly connection limit must be at least 1');
     return errors;
   };
 
   const handleSavePlan = async (plan: PremiumPlan) => {
-    // Validate the plan
     const errors = validatePlan(plan);
     if (errors.length > 0) {
       setValidationErrors(errors);
@@ -188,34 +169,23 @@ const PremiumManagement: React.FC = () => {
       const url = isCreatingPlan
         ? `${API_BASE}/api/admin/premium/plans/`
         : `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/`;
-      
       const method = isCreatingPlan ? 'POST' : 'PUT';
 
-      // Calculate price_per_month using the specified months
-      // Round to 2 decimal places to match Django DecimalField(max_digits=10, decimal_places=2)
       const months = plan.calculation_months || 1;
       const finalPricePerMonth = Math.round((plan.price / months) * 100) / 100;
-      
-      // Remove calculation_months from the data sent to backend (it's only for frontend)
       const { calculation_months, ...planDataForBackend } = plan;
-      
+
       const planToSave = {
         ...planDataForBackend,
         price_per_month: finalPricePerMonth,
+        // Explicitly send null for unlimited (not omit the key)
+        daily_swipe_limit: plan.daily_swipe_limit,
+        monthly_connection_limit: plan.monthly_connection_limit,
       };
-
-      console.log('📤 Saving plan:');
-      console.log('   Price:', plan.price);
-      console.log('   Months:', months);
-      console.log('   Price per month:', finalPricePerMonth);
-      console.log('📦 Full plan data:', planToSave);
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Token ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(planToSave),
       });
 
@@ -226,26 +196,17 @@ const PremiumManagement: React.FC = () => {
         setValidationErrors([]);
         showSuccess(
           isCreatingPlan ? 'Plan Created' : 'Plan Updated',
-          isCreatingPlan 
-            ? `${plan.name} has been created successfully`
-            : `${plan.name} has been updated`
+          isCreatingPlan ? `${plan.name} has been created successfully` : `${plan.name} has been updated`
         );
       } else {
         const errorData = await response.json();
-        console.error('❌ Backend error:', errorData);
-        
-        // Show detailed error message
         let errorMessage = 'Failed to save plan';
-        if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (typeof errorData === 'object') {
-          errorMessage = JSON.stringify(errorData, null, 2);
-        }
-        
+        if (errorData.detail) errorMessage = errorData.detail;
+        else if (typeof errorData === 'object') errorMessage = JSON.stringify(errorData, null, 2);
         throw new Error(errorMessage);
       }
-    } catch (error) {
-      console.error('Error saving plan:', error);
+    } catch (err) {
+      console.error('Error saving plan:', err);
       showError(
         isCreatingPlan ? 'Create Failed' : 'Update Failed',
         'Failed to save the plan. Please try again.'
@@ -265,22 +226,17 @@ const PremiumManagement: React.FC = () => {
       onConfirm: async () => {
         try {
           const token = localStorage.getItem('admin_token');
-          const response = await fetch(
-            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/`,
-            {
-              method: 'DELETE',
-              headers: { 'Authorization': `Token ${token}` },
-            }
-          );
-
+          const response = await fetch(`${API_BASE}/api/admin/premium/plans/${plan.plan_id}/`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Token ${token}` },
+          });
           if (response.ok) {
             await fetchData();
             showSuccess('Plan Deleted', `${plan.name} has been removed`);
           } else {
             throw new Error('Failed to delete plan');
           }
-        } catch (error) {
-          console.error('Error deleting plan:', error);
+        } catch (err) {
           showError('Delete Failed', 'Failed to delete the plan');
         }
       }
@@ -289,39 +245,26 @@ const PremiumManagement: React.FC = () => {
 
   const handleTogglePlanActive = (plan: PremiumPlan) => {
     const action = plan.active ? 'deactivate' : 'activate';
-    
     confirm({
       title: `${action === 'activate' ? 'Activate' : 'Deactivate'} Plan`,
-      message: `Are you sure you want to ${action} "${plan.name}"?${
-        action === 'deactivate' 
-          ? '\n\nThis will hide the plan from users but won\'t affect existing subscriptions.' 
-          : '\n\nThis will make the plan visible to users.'
-      }`,
+      message: `Are you sure you want to ${action} "${plan.name}"?${action === 'deactivate'
+        ? "\n\nThis will hide the plan from users but won't affect existing subscriptions."
+        : '\n\nThis will make the plan visible to users.'}`,
       type: 'info',
       confirmText: action === 'activate' ? 'Activate' : 'Deactivate',
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           const token = localStorage.getItem('admin_token');
-          const response = await fetch(
-            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_active/`,
-            {
-              method: 'POST',
-              headers: { 'Authorization': `Token ${token}` },
-            }
-          );
-          
+          const response = await fetch(`${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_active/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Token ${token}` },
+          });
           if (response.ok) {
             await fetchData();
-            showSuccess(
-              'Status Updated',
-              `${plan.name} has been ${action}d`
-            );
-          } else {
-            throw new Error('Failed to toggle plan status');
-          }
-        } catch (error) {
-          console.error('Error toggling plan:', error);
+            showSuccess('Status Updated', `${plan.name} has been ${action}d`);
+          } else throw new Error('Failed to toggle plan status');
+        } catch (err) {
           showError('Toggle Failed', 'Failed to update plan status');
         }
       }
@@ -330,41 +273,29 @@ const PremiumManagement: React.FC = () => {
 
   const handleTogglePlanPopular = (plan: PremiumPlan) => {
     const action = plan.popular ? 'remove popular badge from' : 'mark as popular';
-    
     confirm({
       title: plan.popular ? 'Remove Popular Badge' : 'Mark as Popular',
-      message: `Are you sure you want to ${action} "${plan.name}"?${
-        !plan.popular 
-          ? '\n\nThis will add a "Popular" badge to highlight this plan.' 
-          : '\n\nThis will remove the "Popular" badge from this plan.'
-      }`,
+      message: `Are you sure you want to ${action} "${plan.name}"?${!plan.popular
+        ? '\n\nThis will add a "Popular" badge to highlight this plan.'
+        : '\n\nThis will remove the "Popular" badge from this plan.'}`,
       type: 'info',
       confirmText: plan.popular ? 'Remove Badge' : 'Mark Popular',
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
           const token = localStorage.getItem('admin_token');
-          const response = await fetch(
-            `${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_popular/`,
-            {
-              method: 'POST',
-              headers: { 'Authorization': `Token ${token}` },
-            }
-          );
-          
+          const response = await fetch(`${API_BASE}/api/admin/premium/plans/${plan.plan_id}/toggle_popular/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Token ${token}` },
+          });
           if (response.ok) {
             await fetchData();
-            showSuccess(
-              'Badge Updated',
-              plan.popular 
-                ? `Popular badge removed from ${plan.name}`
-                : `${plan.name} is now marked as popular`
+            showSuccess('Badge Updated', plan.popular
+              ? `Popular badge removed from ${plan.name}`
+              : `${plan.name} is now marked as popular`
             );
-          } else {
-            throw new Error('Failed to toggle popular status');
-          }
-        } catch (error) {
-          console.error('Error toggling popular:', error);
+          } else throw new Error('Failed to toggle popular status');
+        } catch (err) {
           showError('Toggle Failed', 'Failed to update popular status');
         }
       }
@@ -388,7 +319,9 @@ const PremiumManagement: React.FC = () => {
       features: [],
       active: true,
       display_order: plans.length,
-      calculation_months: 1, // Default to 1 month
+      calculation_months: 1,
+      daily_swipe_limit: null,
+      monthly_connection_limit: null,
     });
   };
 
@@ -434,10 +367,7 @@ const PremiumManagement: React.FC = () => {
             <p className="text-sm text-red-700">{error}</p>
           </div>
         </div>
-        <button
-          onClick={fetchData}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
-        >
+        <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold">
           Try Again
         </button>
       </div>
@@ -446,7 +376,6 @@ const PremiumManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Pricing Plans Section */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -473,10 +402,7 @@ const PremiumManagement: React.FC = () => {
           <div className="text-center py-12">
             <Crown className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No premium plans yet</p>
-            <button
-              onClick={handleCreateNewPlan}
-              className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition font-semibold"
-            >
+            <button onClick={handleCreateNewPlan} className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition font-semibold">
               Create Your First Plan
             </button>
           </div>
@@ -486,11 +412,7 @@ const PremiumManagement: React.FC = () => {
               <PlanCard
                 key={plan.plan_id}
                 plan={plan}
-                onEdit={() => {
-                  setEditingPlan(plan);
-                  setValidationErrors([]);
-                  setIsCreatingPlan(false);
-                }}
+                onEdit={() => { setEditingPlan(plan); setValidationErrors([]); setIsCreatingPlan(false); }}
                 onDelete={() => handleDeletePlan(plan)}
                 onToggleActive={() => handleTogglePlanActive(plan)}
                 onTogglePopular={() => handleTogglePlanPopular(plan)}
@@ -500,7 +422,6 @@ const PremiumManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Edit Plan Modal */}
       {editingPlan && (
         <PlanEditModal
           plan={editingPlan}
@@ -516,7 +437,10 @@ const PremiumManagement: React.FC = () => {
   );
 };
 
-// Plan Card Component
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
 const PlanCard: React.FC<{
   plan: PremiumPlan;
   onEdit: () => void;
@@ -525,11 +449,12 @@ const PlanCard: React.FC<{
   onTogglePopular: () => void;
 }> = ({ plan, onEdit, onDelete, onToggleActive, onTogglePopular }) => {
   const IconComponent = ICON_OPTIONS.find(opt => opt.value === plan.icon)?.icon || Crown;
-
   const features = Array.isArray(plan.features) ? plan.features : [];
-  const price = typeof plan.price === 'number' ? plan.price : parseFloat(plan.price || '0');
-  const originalPrice = plan.original_price ? (typeof plan.original_price === 'number' ? plan.original_price : parseFloat(plan.original_price)) : undefined;
-  const pricePerMonth = typeof plan.price_per_month === 'number' ? plan.price_per_month : parseFloat(plan.price_per_month || '0');
+  const price = typeof plan.price === 'number' ? plan.price : parseFloat(String(plan.price) || '0');
+  const originalPrice = plan.original_price
+    ? (typeof plan.original_price === 'number' ? plan.original_price : parseFloat(String(plan.original_price)))
+    : undefined;
+  const pricePerMonth = typeof plan.price_per_month === 'number' ? plan.price_per_month : parseFloat(String(plan.price_per_month) || '0');
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -544,18 +469,13 @@ const PlanCard: React.FC<{
               <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
               {plan.popular && (
                 <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full flex items-center gap-1">
-                  <Star className="w-3 h-3" />
-                  Popular
+                  <Star className="w-3 h-3" /> Popular
                 </span>
               )}
               {!plan.active && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full">
-                  Inactive
-                </span>
+                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full">Inactive</span>
               )}
-              <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
-                {plan.plan_type}
-              </span>
+              <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">{plan.plan_type}</span>
             </div>
 
             <p className="text-sm text-gray-600 mb-3">{plan.duration}</p>
@@ -566,9 +486,7 @@ const PlanCard: React.FC<{
                 <>
                   <span className="text-lg text-gray-400 line-through">₹{originalPrice.toFixed(2)}</span>
                   {plan.discount_text && (
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">
-                      {plan.discount_text}
-                    </span>
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">{plan.discount_text}</span>
                   )}
                 </>
               )}
@@ -583,13 +501,30 @@ const PlanCard: React.FC<{
               )}
             </p>
 
+            {/* ── NEW: Limits badges ── */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                plan.daily_swipe_limit === null
+                  ? 'bg-teal-50 text-teal-700'
+                  : 'bg-orange-50 text-orange-700'
+              }`}>
+                <Zap className="w-3 h-3" />
+                {plan.daily_swipe_limit === null ? 'Unlimited swipes/day' : `${plan.daily_swipe_limit} swipes/day`}
+              </span>
+              <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                plan.monthly_connection_limit === null
+                  ? 'bg-purple-50 text-purple-700'
+                  : 'bg-blue-50 text-blue-700'
+              }`}>
+                <TrendingUp className="w-3 h-3" />
+                {plan.monthly_connection_limit === null ? 'Unlimited connections/mo' : `${plan.monthly_connection_limit} connections/mo`}
+              </span>
+            </div>
+
             {features.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {features.map((feature, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-teal-50 text-teal-700 text-xs rounded-full flex items-center gap-1"
-                  >
+                  <span key={idx} className="px-2 py-1 bg-teal-50 text-teal-700 text-xs rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">{feature}</span>
                   </span>
@@ -600,11 +535,7 @@ const PlanCard: React.FC<{
         </div>
 
         <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
-          <button
-            onClick={onEdit}
-            className="p-2 text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-lg transition"
-            title="Edit"
-          >
+          <button onClick={onEdit} className="p-2 text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-lg transition" title="Edit">
             <Edit2 className="w-4 h-4" />
           </button>
           <button
@@ -621,11 +552,7 @@ const PlanCard: React.FC<{
           >
             <Star className={`w-4 h-4 ${plan.popular ? 'fill-yellow-400' : ''}`} />
           </button>
-          <button
-            onClick={onDelete}
-            className="p-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition"
-            title="Delete"
-          >
+          <button onClick={onDelete} className="p-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition" title="Delete">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -634,7 +561,82 @@ const PlanCard: React.FC<{
   );
 };
 
-// Plan Edit Modal Component
+// ─────────────────────────────────────────────────────────────────────────────
+// LIMIT INPUT — reusable toggle + number input for null = unlimited
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LimitInput: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  value: number | null;
+  onChange: (val: number | null) => void;
+  disabled?: boolean;
+  defaultValue?: number;
+  colorClass?: string;
+}> = ({ label, icon, value, onChange, disabled, defaultValue = 10, colorClass = 'teal' }) => {
+  const isUnlimited = value === null;
+
+  return (
+    <div className={`rounded-xl border-2 p-4 transition-colors ${
+      isUnlimited ? 'border-gray-200 bg-gray-50' : `border-${colorClass}-200 bg-${colorClass}-50`
+    }`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className={`${isUnlimited ? 'text-gray-400' : `text-${colorClass}-600`}`}>{icon}</span>
+          <span className="text-sm font-semibold text-gray-700">{label}</span>
+        </div>
+        {/* Toggle unlimited / limited */}
+        <button
+          type="button"
+          onClick={() => onChange(isUnlimited ? defaultValue : null)}
+          disabled={disabled}
+          className="flex items-center gap-1.5 text-xs font-bold transition disabled:opacity-50"
+        >
+          {isUnlimited ? (
+            <>
+              <Infinity className="w-4 h-4 text-gray-400" />
+              <span className="text-gray-500">Unlimited</span>
+              <ToggleLeft className="w-5 h-5 text-gray-400" />
+            </>
+          ) : (
+            <>
+              <span className={`text-${colorClass}-600`}>Limited</span>
+              <ToggleRight className={`w-5 h-5 text-${colorClass}-500`} />
+            </>
+          )}
+        </button>
+      </div>
+
+      {isUnlimited ? (
+        <p className="text-xs text-gray-400 text-center py-2">
+          No limit — users on this plan can {label.toLowerCase()} without restriction
+        </p>
+      ) : (
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min="1"
+            value={value ?? ''}
+            onChange={(e) => {
+              const v = parseInt(e.target.value);
+              onChange(isNaN(v) || v < 1 ? 1 : v);
+            }}
+            disabled={disabled}
+            className={`flex-1 px-3 py-2 border-2 border-${colorClass}-300 rounded-lg text-sm font-bold text-center focus:ring-2 focus:ring-${colorClass}-500 focus:border-${colorClass}-500 disabled:opacity-50 bg-white`}
+          />
+          <span className="text-xs text-gray-500 whitespace-nowrap">
+            {label.includes('wipe') ? 'swipes / day' : 'connections / month'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN EDIT MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+
 const PlanEditModal: React.FC<{
   plan: PremiumPlan;
   isCreating: boolean;
@@ -645,11 +647,8 @@ const PlanEditModal: React.FC<{
   validationErrors: string[];
 }> = ({ plan, isCreating, isSaving, onSave, onCancel, onChange, validationErrors }) => {
   const [newFeature, setNewFeature] = useState('');
-
   const features = Array.isArray(plan.features) ? plan.features : [];
   const months = plan.calculation_months || 1;
-
-  // Calculate price per month dynamically (rounded to 2 decimal places)
   const calculatedPricePerMonth = Math.round((plan.price / months) * 100) / 100;
 
   const handleAddFeature = () => {
@@ -659,26 +658,6 @@ const PlanEditModal: React.FC<{
     }
   };
 
-  const handleRemoveFeature = (index: number) => {
-    onChange({ ...plan, features: features.filter((_, i) => i !== index) });
-  };
-
-  const handlePriceChange = (newPrice: number) => {
-    console.log('💵 Price changed to:', newPrice);
-    onChange({
-      ...plan,
-      price: newPrice,
-    });
-  };
-
-  const handleMonthsChange = (newMonths: number) => {
-    console.log('📅 Months changed to:', newMonths);
-    onChange({
-      ...plan,
-      calculation_months: newMonths,
-    });
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -686,11 +665,7 @@ const PlanEditModal: React.FC<{
           <h2 className="text-2xl font-bold text-gray-900">
             {isCreating ? 'Create New Plan' : 'Edit Plan'}
           </h2>
-          <button
-            onClick={onCancel}
-            disabled={isSaving}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button onClick={onCancel} disabled={isSaving} className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -703,8 +678,8 @@ const PlanEditModal: React.FC<{
               <div>
                 <h4 className="text-sm font-semibold text-red-800 mb-2">Please fix the following errors:</h4>
                 <ul className="list-disc list-inside space-y-1">
-                  {validationErrors.map((error, idx) => (
-                    <li key={idx} className="text-sm text-red-700">{error}</li>
+                  {validationErrors.map((err, idx) => (
+                    <li key={idx} className="text-sm text-red-700">{err}</li>
                   ))}
                 </ul>
               </div>
@@ -725,10 +700,9 @@ const PlanEditModal: React.FC<{
               disabled={!isCreating || isSaving}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"
               placeholder="e.g., monthly, quarterly"
-              required
             />
             <p className="text-xs text-gray-500 mt-1">
-              {isCreating ? 'Unique identifier for this plan (cannot be changed later)' : 'Plan ID cannot be changed'}
+              {isCreating ? 'Unique identifier (cannot be changed later)' : 'Plan ID cannot be changed'}
             </p>
           </div>
 
@@ -744,7 +718,6 @@ const PlanEditModal: React.FC<{
               disabled={isSaving}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               placeholder="e.g., Monthly Premium"
-              required
             />
           </div>
 
@@ -761,7 +734,6 @@ const PlanEditModal: React.FC<{
                 disabled={isSaving}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 placeholder="e.g., 1 Month"
-                required
               />
             </div>
             <div>
@@ -774,10 +746,8 @@ const PlanEditModal: React.FC<{
                 disabled={isSaving}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               >
-                {PLAN_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                {PLAN_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -793,10 +763,9 @@ const PlanEditModal: React.FC<{
                 type="number"
                 step="0.01"
                 value={plan.price}
-                onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
+                onChange={(e) => onChange({ ...plan, price: parseFloat(e.target.value) || 0 })}
                 disabled={isSaving}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                required
               />
             </div>
             <div>
@@ -815,34 +784,31 @@ const PlanEditModal: React.FC<{
             </div>
           </div>
 
-          {/* ✨ NEW: Number of Months for Calculation */}
+          {/* Months for calculation */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Calculate Price Over How Many Months? <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-4 gap-3">
-              {MONTH_OPTIONS.map((monthOption) => (
+              {MONTH_OPTIONS.map((mo) => (
                 <button
-                  key={monthOption}
+                  key={mo}
                   type="button"
-                  onClick={() => handleMonthsChange(monthOption)}
+                  onClick={() => onChange({ ...plan, calculation_months: mo })}
                   disabled={isSaving}
-                  className={`px-4 py-3 rounded-lg border-2 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                    months === monthOption
+                  className={`px-4 py-3 rounded-lg border-2 font-semibold transition disabled:opacity-50 ${
+                    months === mo
                       ? 'border-teal-500 bg-teal-50 text-teal-700'
                       : 'border-gray-300 hover:border-teal-300 text-gray-700'
                   }`}
                 >
-                  {monthOption} {monthOption === 1 ? 'Month' : 'Months'}
+                  {mo} {mo === 1 ? 'Month' : 'Months'}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Select the number of months to divide the price by
-            </p>
           </div>
 
-          {/* Calculated Price Per Month (read-only display) */}
+          {/* Calculated monthly cost */}
           <div className="bg-gradient-to-r from-blue-50 to-teal-50 border-2 border-blue-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -858,9 +824,7 @@ const PlanEditModal: React.FC<{
 
           {/* Discount Text */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Discount Text
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Discount Text</label>
             <input
               type="text"
               value={plan.discount_text || ''}
@@ -869,44 +833,61 @@ const PlanEditModal: React.FC<{
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               placeholder="e.g., Save 20%"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Optional badge to show discount amount (only shown if original price is set)
+          </div>
+
+          {/* ── NEW: Usage Limits ─────────────────────────────────────────── */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Usage Limits</label>
+            <p className="text-xs text-gray-500 mb-3">
+              Toggle to set a cap, or leave as unlimited. Free users always have a hard cap of 3 swipes/day regardless.
             </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <LimitInput
+                label="Daily Swipes"
+                icon={<Zap className="w-4 h-4" />}
+                value={plan.daily_swipe_limit}
+                onChange={(val) => onChange({ ...plan, daily_swipe_limit: val })}
+                disabled={isSaving}
+                defaultValue={50}
+                colorClass="teal"
+              />
+              <LimitInput
+                label="Monthly Connections"
+                icon={<TrendingUp className="w-4 h-4" />}
+                value={plan.monthly_connection_limit}
+                onChange={(val) => onChange({ ...plan, monthly_connection_limit: val })}
+                disabled={isSaving}
+                defaultValue={100}
+                colorClass="purple"
+              />
+            </div>
           </div>
 
           {/* Icon & Gradient */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Icon
-              </label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Icon</label>
               <select
                 value={plan.icon}
                 onChange={(e) => onChange({ ...plan, icon: e.target.value })}
                 disabled={isSaving}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               >
-                {ICON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                {ICON_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Gradient
-              </label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Gradient</label>
               <select
                 value={plan.gradient}
                 onChange={(e) => onChange({ ...plan, gradient: e.target.value })}
                 disabled={isSaving}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               >
-                {GRADIENT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                {GRADIENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -914,9 +895,7 @@ const PlanEditModal: React.FC<{
 
           {/* Display Order */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Display Order
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Display Order</label>
             <input
               type="number"
               value={plan.display_order}
@@ -925,16 +904,12 @@ const PlanEditModal: React.FC<{
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               min="0"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Lower numbers appear first in the list
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Lower numbers appear first</p>
           </div>
 
           {/* Features */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Features
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Features</label>
             <div className="space-y-2 mb-3">
               {features.map((feature, index) => (
                 <div key={index} className="flex items-center gap-2">
@@ -950,9 +925,9 @@ const PlanEditModal: React.FC<{
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                   <button
-                    onClick={() => handleRemoveFeature(index)}
+                    onClick={() => onChange({ ...plan, features: features.filter((_, i) => i !== index) })}
                     disabled={isSaving}
-                    className="p-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -969,13 +944,12 @@ const PlanEditModal: React.FC<{
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 placeholder="Add a feature..."
               />
-              <button 
+              <button
                 onClick={handleAddFeature}
                 disabled={isSaving}
-                className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition flex items-center gap-2 disabled:opacity-50"
               >
-                <Plus className="w-4 h-4" />
-                Add
+                <Plus className="w-4 h-4" /> Add
               </button>
             </div>
           </div>
@@ -985,24 +959,18 @@ const PlanEditModal: React.FC<{
           <button
             onClick={() => onSave(plan)}
             disabled={isSaving}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-blue-500 text-white h-12 rounded-lg hover:opacity-90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-blue-500 text-white h-12 rounded-lg hover:opacity-90 transition font-semibold disabled:opacity-50"
           >
             {isSaving ? (
-              <>
-                <Loader className="w-4 h-4 animate-spin" />
-                {isCreating ? 'Creating...' : 'Saving...'}
-              </>
+              <><Loader className="w-4 h-4 animate-spin" />{isCreating ? 'Creating...' : 'Saving...'}</>
             ) : (
-              <>
-                <Save className="w-4 h-4" />
-                {isCreating ? 'Create Plan' : 'Save Changes'}
-              </>
+              <><Save className="w-4 h-4" />{isCreating ? 'Create Plan' : 'Save Changes'}</>
             )}
           </button>
           <button
             onClick={onCancel}
             disabled={isSaving}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
           >
             Cancel
           </button>

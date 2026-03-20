@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import TopBar from "@/components/layout/TopBar";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -9,9 +9,9 @@ import Step4Lifestyle from "./steps/Step4Lifestyle";
 import Step5Communication from "./steps/Step5Communication";
 import Step6Interests from "./steps/Step6Interests";
 import Step7Location from "./steps/Step7Location";
-import Step8Bio from "./steps/Step9Bio";        // was Step9Bio, now Step8
-import Step9Social from "./steps/Step10Social"; // was Step10Social, now Step9
-import Step10Review from "./steps/Step11Review"; // was Step11Review, now Step10
+import Step8Bio from "./steps/Step9Bio";
+import Step9Social from "./steps/Step10Social";
+import Step10Review from "./steps/Step11Review";
 import { profileService } from "../../services/profileService";
 
 export type OnboardingData = {
@@ -34,7 +34,7 @@ export type OnboardingData = {
   useCurrentLocation: boolean;
   latitude?: number;
   longitude?: number;
-  photos: string[]; // kept in type so existing DB data isn't lost
+  photos: string[];
   bio: string;
   socialAccounts?: {
     instagram: string;
@@ -76,7 +76,10 @@ const initialData: OnboardingData = {
   },
 };
 
-const TOTAL_STEPS = 10; // was 11, removed photos step
+const TOTAL_STEPS = 10;
+
+// Key used to signal "onboarding just completed — skip the reload guard"
+const ONBOARDING_DONE_KEY = "onboarding_complete";
 
 export default function OnboardingFlow({
   onComplete,
@@ -89,6 +92,10 @@ export default function OnboardingFlow({
   const [data, setData] = useState<OnboardingData>(initialData);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // FIX: track whether we are in the middle of finishing so we don't
+  // accidentally reload the profile or reset state mid-navigation.
+  const isFinishingRef = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -113,6 +120,9 @@ export default function OnboardingFlow({
 
   // Save to localStorage whenever data changes (without photos)
   useEffect(() => {
+    // Don't write to localStorage after we're done — avoids a race where the
+    // cleanup in saveProfileAndFinish is immediately overwritten.
+    if (isFinishingRef.current) return;
     const { photos: _photos, ...rest } = data;
     localStorage.setItem("onboardingData", JSON.stringify(rest));
   }, [data]);
@@ -120,6 +130,7 @@ export default function OnboardingFlow({
   // Load existing profile from API
   useEffect(() => {
     loadExistingProfile();
+
     const state = location.state as { startStep?: number } | null;
     if (state?.startStep) {
       setStep(state.startStep);
@@ -127,12 +138,15 @@ export default function OnboardingFlow({
   }, []);
 
   const loadExistingProfile = async () => {
+    // FIX: if we just finished onboarding, skip the API reload entirely
+    // so we don't overwrite the just-saved data or re-render the flow.
+    if (isFinishingRef.current) return;
+
     try {
       setIsLoading(true);
       const result = await profileService.getProfile();
 
       if (result?.exists && result?.data) {
-        console.log("✅ Existing profile loaded:", result.data);
         const mergedData = {
           ...initialData,
           ...result.data,
@@ -155,7 +169,6 @@ export default function OnboardingFlow({
     try {
       setIsSaving(true);
       await profileService.saveProfile(data);
-      console.log("✅ Auto-saved profile data");
     } catch (err) {
       console.error("❌ Auto-save failed:", err);
     } finally {
@@ -193,22 +206,33 @@ export default function OnboardingFlow({
   };
 
   const saveProfileAndFinish = async () => {
+    // FIX: set the ref immediately so no other effect can trigger a reload
+    isFinishingRef.current = true;
+
     try {
       setIsSaving(true);
       await profileService.saveProfile(data);
+
+      // Clean up all onboarding state from storage
       localStorage.removeItem("onboardingData");
+      localStorage.removeItem(ONBOARDING_DONE_KEY);
+
+      // Small delay so the save request fully completes before we navigate
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       if (data.gender && data.gender.toLowerCase() === "man") {
+        // Men are shown the premium upsell first
         navigate("/premium", { replace: true });
+      } else if (onComplete) {
+        // Parent component handles the redirect (e.g. in a modal flow)
+        onComplete();
       } else {
-        if (onComplete) {
-          onComplete();
-        } else {
-          navigate("/home", { replace: true });
-        }
+        navigate("/home", { replace: true });
       }
     } catch (err) {
       console.error("❌ Profile save failed:", err);
+      // On error, allow the user to try again
+      isFinishingRef.current = false;
     } finally {
       setIsSaving(false);
     }
@@ -234,9 +258,9 @@ export default function OnboardingFlow({
       case 5:  return <Step5Communication {...commonProps} />;
       case 6:  return <Step6Interests {...commonProps} />;
       case 7:  return <Step7Location {...commonProps} />;
-      case 8:  return <Step8Bio {...commonProps} />;       // Bio (was step 9)
-      case 9:  return <Step9Social {...commonProps} />;    // Social (was step 10)
-      case 10: return <Step10Review {...commonProps} onNext={saveProfileAndFinish} />; // Review (was step 11)
+      case 8:  return <Step8Bio {...commonProps} />;
+      case 9:  return <Step9Social {...commonProps} />;
+      case 10: return <Step10Review {...commonProps} onNext={saveProfileAndFinish} />;
       default: return <Step1BasicInfo {...commonProps} />;
     }
   };
@@ -245,7 +269,7 @@ export default function OnboardingFlow({
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4" />
           <p className="text-gray-600">Loading your profile...</p>
         </div>
       </div>

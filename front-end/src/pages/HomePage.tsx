@@ -24,8 +24,6 @@ import { profileService } from "@/services/profileService";
 const API_BASE = import.meta.env.VITE_API_BASE;
 const WS_BASE  = API_BASE.replace(/^http/, "ws");
 
-
-
 interface MatchApiResponse {
   similarity: number;
   profile: {
@@ -51,11 +49,20 @@ interface HomePageProps {
   onLogout?: () => void;
 }
 
+// ── Response shape from /api/profile/swipes/ ─────────────────────────────────
+interface SwipeCountResponse {
+  swipes_used: number;
+  swipes_remaining: number | null;
+  limit_reached: boolean;
+  is_premium: boolean;        // ← server-verified, the only reliable source
+  daily_limit: number | null; // null = unlimited
+}
+
 /* ---------------- CONSTANTS ---------------- */
-const FREE_SWIPE_LIMIT    = 3;
-const WELCOME_SHOWN_KEY   = "swipe_welcome_shown";
+const FREE_SWIPE_LIMIT      = 3;
+const WELCOME_SHOWN_KEY     = "swipe_welcome_shown";
 const LAST_SWIPE_WARNED_KEY = "last_swipe_warned";
-const PAYWALL_SHOWN_KEY   = "swipe_paywall_shown";
+const PAYWALL_SHOWN_KEY     = "swipe_paywall_shown";
 
 /* ---------------- UTILS ---------------- */
 const getRandomInterests = (interests: string[], count = 4) => {
@@ -64,35 +71,58 @@ const getRandomInterests = (interests: string[], count = 4) => {
 };
 
 /* ---------------- SERVER-SIDE SWIPE HELPERS ---------------- */
-const fetchSwipeCount = async (): Promise<number> => {
+
+const fetchSwipeStatus = async (): Promise<SwipeCountResponse> => {
+  const defaultFree: SwipeCountResponse = {
+    swipes_used: 0,
+    swipes_remaining: FREE_SWIPE_LIMIT,
+    limit_reached: false,
+    is_premium: false,
+    daily_limit: FREE_SWIPE_LIMIT,
+  };
+
   try {
     const token = localStorage.getItem("access_token");
-    if (!token) return 0;
+    if (!token) return defaultFree;
+
     const res = await fetch(`${API_BASE}/api/profile/swipes/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return 0;
+    if (!res.ok) return defaultFree;
+
     const data = await res.json();
-    return data.swipes_used ?? 0;
+    return {
+      swipes_used:      data.swipes_used      ?? 0,
+      swipes_remaining: data.swipes_remaining  ?? FREE_SWIPE_LIMIT,
+      limit_reached:    data.limit_reached     ?? false,
+      is_premium:       data.is_premium        ?? false,
+      daily_limit:      data.daily_limit       ?? FREE_SWIPE_LIMIT,
+    };
   } catch {
-    return 0;
+    return defaultFree;
   }
 };
 
-const incrementSwipeCount = async (): Promise<number> => {
+const incrementSwipeCount = async (): Promise<{ swipes_used: number; limit_reached: boolean }> => {
   try {
     const token = localStorage.getItem("access_token");
-    if (!token) return FREE_SWIPE_LIMIT;
+    if (!token) return { swipes_used: FREE_SWIPE_LIMIT, limit_reached: true };
+
     const res = await fetch(`${API_BASE}/api/profile/swipes/increment/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status === 403) return FREE_SWIPE_LIMIT;
-    if (!res.ok) return FREE_SWIPE_LIMIT;
+
+    if (res.status === 403) return { swipes_used: FREE_SWIPE_LIMIT, limit_reached: true };
+    if (!res.ok)            return { swipes_used: FREE_SWIPE_LIMIT, limit_reached: false };
+
     const data = await res.json();
-    return data.swipes_used ?? FREE_SWIPE_LIMIT;
+    return {
+      swipes_used:   data.swipes_used   ?? FREE_SWIPE_LIMIT,
+      limit_reached: data.limit_reached ?? false,
+    };
   } catch {
-    return FREE_SWIPE_LIMIT;
+    return { swipes_used: FREE_SWIPE_LIMIT, limit_reached: false };
   }
 };
 
@@ -106,44 +136,49 @@ const HomePage = ({ onLogout }: HomePageProps) => {
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState("User");
+
+  // FIX: isPremium is now set exclusively from the server's swipe-status
+  // response (is_premium field). profileService.getProfile().subscription
+  // may not be populated on the first render, causing premium users to be
+  // treated as free users and their deck to be locked.
   const [isPremium, setIsPremium] = useState(false);
 
-  const [swipesUsed, setSwipesUsed] = useState<number>(0);
-  const [deckLocked, setDeckLocked] = useState(false);
+  const [swipesUsed, setSwipesUsed]   = useState<number>(0);
+  const [dailyLimit, setDailyLimit]   = useState<number | null>(FREE_SWIPE_LIMIT);
+  const [deckLocked, setDeckLocked]   = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
-  // ── Persisted in sessionStorage so navigating away & back doesn't re-trigger
   const paywallShownRef = useRef<boolean>(
     sessionStorage.getItem(PAYWALL_SHOWN_KEY) === "true"
   );
 
-  // Prevents the swipe counter from flashing for premium users on load
   const [authLoading, setAuthLoading] = useState(true);
 
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [infoModalMode, setInfoModalMode] = useState<"welcome" | "last-swipe">("welcome");
 
-  const [storyText, setStoryText] = useState("");
+  const [storyText, setStoryText]             = useState("");
   const [submittingStory, setSubmittingStory] = useState(false);
-  const [justSubmitted, setJustSubmitted] = useState(false);
+  const [justSubmitted, setJustSubmitted]     = useState(false);
 
   const [showMatchModal, setShowMatchModal] = useState(false);
-  const [matchProfile, setMatchProfile] = useState<SwipeProfile | null>(null);
-  const [matchChatId, setMatchChatId] = useState<string | null>(null);
+  const [matchProfile, setMatchProfile]     = useState<SwipeProfile | null>(null);
+  const [matchChatId, setMatchChatId]       = useState<string | null>(null);
 
-  // ── Highlighted profile email from ?highlight=<email> (LIKE_RECEIVED nav)
   const [highlightedEmail, setHighlightedEmail] = useState<string | null>(null);
 
   const deckRef = useRef<HTMLDivElement>(null);
   const MAX_STORY_LENGTH = 500;
 
-  /* -------- helper: show paywall once per session -------- */
+  /* -------- helpers -------- */
   const triggerPaywall = () => {
     if (paywallShownRef.current) return;
     paywallShownRef.current = true;
     sessionStorage.setItem(PAYWALL_SHOWN_KEY, "true");
     setShowPaywall(true);
   };
+
+  const swipesLeft = dailyLimit === null ? null : Math.max(0, dailyLimit - swipesUsed);
 
   /* -------- READ ?highlight PARAM ON MOUNT -------- */
   useEffect(() => {
@@ -154,7 +189,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     }
   }, []);
 
-  /* -------- SCROLL TO DECK + SHOW HIGHLIGHT TOAST ONCE PROFILES LOAD -------- */
+  /* -------- SCROLL TO DECK + HIGHLIGHT TOAST -------- */
   useEffect(() => {
     if (!highlightedEmail || loadingMatches || profiles.length === 0) return;
 
@@ -172,7 +207,6 @@ const HomePage = ({ onLogout }: HomePageProps) => {
         duration: 6000,
         icon: "❤️",
       });
-
       setProfiles((prev) => {
         const idx = prev.findIndex(
           (p) => p.id.toLowerCase() === highlightedEmail.toLowerCase()
@@ -183,31 +217,35 @@ const HomePage = ({ onLogout }: HomePageProps) => {
         return [item, ...copy];
       });
     } else {
-      toast("This person's profile isn't in your current deck. Check back soon!", {
-        duration: 5000,
-      });
+      toast("This person's profile isn't in your current deck. Check back soon!", { duration: 5000 });
     }
 
     setHighlightedEmail(null);
   }, [highlightedEmail, loadingMatches, profiles.length]);
 
-  /* -------- 1. FETCH USER PROFILE + PREMIUM STATUS + SWIPE COUNT -------- */
+  /* -------- 1. FETCH USER PROFILE + SWIPE STATUS -------- */
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
+        // Profile fetch: only used for display name
         const result = await profileService.getProfile();
         if (result.exists && result.data) {
           setUserName(result.data.firstName);
         }
 
-        const sub = (result as any).subscription;
-        const premium = sub?.isPremium && sub?.isActive;
-        setIsPremium(!!premium);
+        // FIX: swipe status is the single source of truth for premium + limits.
+        // The server's get_swipe_count view now returns is_premium based on
+        // profile.premium + profile.premium_expires_at, which is set after
+        // payment verification — this is always accurate.
+        const swipeStatus = await fetchSwipeStatus();
 
-        const serverSwipesUsed = await fetchSwipeCount();
-        setSwipesUsed(serverSwipesUsed);
+        setIsPremium(swipeStatus.is_premium);
+        setSwipesUsed(swipeStatus.swipes_used);
+        setDailyLimit(swipeStatus.daily_limit);
 
-        if (!premium && serverSwipesUsed >= FREE_SWIPE_LIMIT) {
+        // Only lock if limit truly reached AND not an unlimited premium user
+        const isUnlimitedPremium = swipeStatus.is_premium && swipeStatus.daily_limit === null;
+        if (swipeStatus.limit_reached && !isUnlimitedPremium) {
           setDeckLocked(true);
         }
       } catch (err) {
@@ -239,18 +277,15 @@ const HomePage = ({ onLogout }: HomePageProps) => {
       try {
         setLoadingMatches(true);
         setError(null);
-
         const token = localStorage.getItem("access_token");
         if (!token) throw new Error("No access token");
 
         const res = await fetch(`${API_BASE}/api/matches/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!res.ok) throw new Error("Failed to fetch matches");
 
         const data: MatchApiResponse[] = await res.json();
-
         setProfiles(
           data.map((item) => ({
             id: item.profile.email || item.profile.username,
@@ -266,7 +301,6 @@ const HomePage = ({ onLogout }: HomePageProps) => {
         setLoadingMatches(false);
       }
     };
-
     fetchMatches();
   }, []);
 
@@ -320,10 +354,13 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
   /* -------- SWIPE GATE -------- */
   const handleSwipeAttempt = (): boolean => {
-    if (isPremium) return true;
-    if (swipesUsed >= FREE_SWIPE_LIMIT) {
+    if (isPremium && dailyLimit === null) return true;
+
+    const limit = dailyLimit ?? FREE_SWIPE_LIMIT;
+    if (swipesUsed >= limit) {
       setDeckLocked(true);
-      triggerPaywall();
+      if (!isPremium) triggerPaywall();
+      else toast.error("Daily swipe limit reached for your plan. Resets tomorrow.");
       return false;
     }
     return true;
@@ -331,9 +368,10 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
   const maybeShowLastSwipeWarning = (newCount: number) => {
     if (isPremium) return;
-    const swipesLeft = FREE_SWIPE_LIMIT - newCount;
+    const limit = dailyLimit ?? FREE_SWIPE_LIMIT;
+    const swipesLeftNow = limit - newCount;
     const alreadyWarned = localStorage.getItem(LAST_SWIPE_WARNED_KEY);
-    if (swipesLeft === 1 && !alreadyWarned) {
+    if (swipesLeftNow === 1 && !alreadyWarned) {
       setTimeout(() => {
         setInfoModalMode("last-swipe");
         setShowInfoModal(true);
@@ -349,13 +387,13 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     const likedProfile = profiles.find((p) => p.id === profileId);
     setProfiles((prev) => prev.filter((p) => p.id !== profileId));
 
-    const newCount = await incrementSwipeCount();
+    const { swipes_used: newCount, limit_reached } = await incrementSwipeCount();
     setSwipesUsed(newCount);
     maybeShowLastSwipeWarning(newCount);
 
-    if (!isPremium && newCount >= FREE_SWIPE_LIMIT) {
+    if (limit_reached) {
       setDeckLocked(true);
-      setTimeout(() => triggerPaywall(), 400);
+      if (!isPremium) setTimeout(() => triggerPaywall(), 400);
     }
 
     try {
@@ -369,6 +407,11 @@ const HomePage = ({ onLogout }: HomePageProps) => {
       });
 
       const data = await res.json();
+
+      if (res.status === 403) {
+        toast.error(data.error || "Connection limit reached for your plan this month.");
+        return;
+      }
 
       if (data.status === "matched") {
         setMatchProfile(likedProfile || null);
@@ -389,13 +432,13 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
     setProfiles((prev) => prev.filter((p) => p.id !== profileId));
 
-    const newCount = await incrementSwipeCount();
+    const { swipes_used: newCount, limit_reached } = await incrementSwipeCount();
     setSwipesUsed(newCount);
     maybeShowLastSwipeWarning(newCount);
 
-    if (!isPremium && newCount >= FREE_SWIPE_LIMIT) {
+    if (limit_reached) {
       setDeckLocked(true);
-      setTimeout(() => triggerPaywall(), 400);
+      if (!isPremium) setTimeout(() => triggerPaywall(), 400);
     }
   };
 
@@ -434,8 +477,6 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     }
   };
 
-  const swipesLeft = Math.max(0, FREE_SWIPE_LIMIT - swipesUsed);
-
   /* ================= RENDER ================= */
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-16 md:pt-20 overflow-x-hidden">
@@ -450,7 +491,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12">
 
-        {/* 1. Hero Section */}
+        {/* 1. Hero */}
         <div className="text-center mb-10 md:mb-16 px-2">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-gray-900 mb-4 leading-tight">
             Find Your Vibe, <br className="hidden xs:block md:hidden" />
@@ -464,19 +505,28 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           </p>
         </div>
 
-        {/* 2. Swipe Deck Section */}
+        {/* 2. Swipe Deck */}
         <div ref={deckRef} className="mb-12 md:mb-20 max-w-md md:max-w-4xl mx-auto w-full">
           <div className="relative">
             <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-r from-teal-200/20 to-purple-200/20 blur-3xl rounded-full pointer-events-none -z-10" />
 
-            {!authLoading && !isPremium && !deckLocked && (
+            {/* Counter badge — hidden when unlimited */}
+            {!authLoading && !deckLocked && dailyLimit !== null && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3.5 py-1.5 bg-white rounded-full shadow-md border border-gray-100 text-xs font-bold text-slate-700 whitespace-nowrap">
                 <span className="flex gap-0.5">
-                  {Array.from({ length: FREE_SWIPE_LIMIT }).map((_, i) => (
-                    <span key={i} className={`w-2 h-2 rounded-full transition-colors duration-300 ${i < swipesUsed ? "bg-slate-300" : "bg-teal-500"}`} />
+                  {Array.from({ length: Math.min(dailyLimit, 10) }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+                        i < swipesUsed ? "bg-slate-300" : "bg-teal-500"
+                      }`}
+                    />
                   ))}
+                  {dailyLimit > 10 && <span className="text-gray-400 ml-1">+{dailyLimit - 10}</span>}
                 </span>
-                {swipesLeft === 1 ? "1 free swipe left" : `${swipesLeft} free swipes left`}
+                {swipesLeft === 1
+                  ? "1 swipe left today"
+                  : `${swipesLeft} swipes left today`}
               </div>
             )}
 
@@ -493,20 +543,34 @@ const HomePage = ({ onLogout }: HomePageProps) => {
               <div className="flex flex-col items-center justify-center h-[400px] w-full text-center p-8 bg-white rounded-[32px] md:rounded-[40px] border border-gray-100 shadow-xl">
                 <Heart className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mb-4" />
                 <h3 className="text-lg md:text-xl font-bold text-gray-900">No more matches</h3>
-                <p className="text-xs md:text-sm text-gray-500 mt-2 max-w-[200px] md:max-w-none mx-auto">Check back later for more people nearby!</p>
+                <p className="text-xs md:text-sm text-gray-500 mt-2 max-w-[200px] md:max-w-none mx-auto">
+                  Check back later for more people nearby!
+                </p>
               </div>
             ) : (
               <div className="relative">
                 <div className={deckLocked ? "pointer-events-none select-none" : ""}>
                   <AnonymousSwipeDeck profiles={profiles} onLike={handleLike} onDislike={handleDislike} />
                 </div>
-                {deckLocked && <LockedDeckOverlay onUnlockClick={() => setShowPaywall(true)} />}
+                {deckLocked && (
+                  // FIX: pass isPremium so overlay shows the right state
+                  <LockedDeckOverlay
+                    isPremium={isPremium}
+                    onUnlockClick={() => {
+                      if (isPremium) {
+                        toast.error("Daily swipe limit reached for your plan. Come back tomorrow!");
+                      } else {
+                        setShowPaywall(true);
+                      }
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* 3. Stats Grid */}
+        {/* 3. Stats */}
         <div className="grid grid-cols-3 gap-3 md:gap-8 mb-12 md:mb-16 max-w-4xl mx-auto px-2 md:px-0">
           {[
             { label: "Active Users", value: "10K+" },
@@ -520,28 +584,28 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           ))}
         </div>
 
-        {/* 4. Profile Completion Alert */}
+        {/* 4. Profile Completion */}
         <div className="max-w-3xl mx-auto mb-16 md:mb-20 px-2 md:px-0">
           <ProfileCompletion />
         </div>
 
-        {/* 5. Info Banners Grid */}
+        {/* 5. Banners */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto mb-16 px-2 md:px-0">
           <div className="h-full min-h-[180px]"><NearbyBanner /></div>
           <PremiumBanner />
         </div>
 
-        {/* 6. Expert Tips Section */}
+        {/* 6. Expert Tips */}
         <div className="max-w-5xl mx-auto mb-16 sm:mb-20 px-2 md:px-0">
           <ExpertTipsBanner />
         </div>
 
-        {/* 7. Success Stories */}
+        {/* 7. Stories */}
         <div className="mb-12 sm:mb-16 lg:mb-20">
           <ReviewCarousel />
         </div>
 
-        {/* 8. Write Your Story */}
+        {/* 8. Write Story */}
         <div className="max-w-3xl mx-auto mb-16 sm:mb-24 px-4 md:px-0">
           <div className="bg-gradient-to-br from-white to-teal-50/50 rounded-[24px] md:rounded-[32px] p-6 md:p-10 shadow-lg border border-teal-100 relative overflow-hidden">
             <PenLine className="absolute top-4 right-4 md:top-6 md:right-6 w-16 h-16 md:w-24 md:h-24 text-teal-100/50 -rotate-12 pointer-events-none opacity-50 md:opacity-100" />
@@ -571,7 +635,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
               <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-200 p-2 focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-500 transition-all">
                 <textarea
                   className="w-full p-3 md:p-4 rounded-lg md:rounded-xl outline-none min-h-[100px] md:min-h-[120px] bg-transparent resize-none text-gray-700 placeholder:text-gray-400 text-sm md:text-base"
-                  placeholder="Tell us how you met... (e.g., 'We matched on The Dating App and our first date was magical!')"
+                  placeholder="Tell us how you met..."
                   value={storyText}
                   onChange={(e) => setStoryText(e.target.value)}
                   maxLength={MAX_STORY_LENGTH}
@@ -602,7 +666,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           </div>
         </div>
 
-        {/* 9. Security Section */}
+        {/* 9. Security */}
         <div className="max-w-5xl mx-auto mb-12 sm:mb-16 px-2 md:px-0">
           <SecurityBanner />
         </div>

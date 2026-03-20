@@ -43,7 +43,6 @@ class Review(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 # PREMIUM
 # ─────────────────────────────────────────────────────────────────────────────
-
 class PremiumPlan(models.Model):
     PLAN_TYPES = [
         ('monthly', 'Monthly'),
@@ -67,7 +66,6 @@ class PremiumPlan(models.Model):
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
     original_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    # Allow blank so model can calculate it
     price_per_month = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     discount_text = models.CharField(max_length=50, null=True, blank=True)
 
@@ -77,6 +75,19 @@ class PremiumPlan(models.Model):
     popular = models.BooleanField(default=False)
 
     features = models.JSONField(default=list)
+
+    # ── NEW: Usage limits ─────────────────────────────────────────────────
+    daily_swipe_limit = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Max swipes per day for this plan. NULL = unlimited."
+    )
+    monthly_connection_limit = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Max likes/connections per month. NULL = unlimited."
+    )
+    # ─────────────────────────────────────────────────────────────────────
 
     active = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
@@ -102,6 +113,7 @@ class PremiumPlan(models.Model):
             self.discount_text = f"Save {int(discount_percent)}%"
 
         super().save(*args, **kwargs)
+    
 
 
 class PremiumFeature(models.Model):

@@ -37,7 +37,6 @@ class ApprovedReviewSerializer(serializers.ModelSerializer):
 # ─────────────────────────────────────────────────────────────────────────────
 # PREMIUM SERIALIZERS
 # ─────────────────────────────────────────────────────────────────────────────
-
 class PremiumPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = PremiumPlan
@@ -45,13 +44,26 @@ class PremiumPlanSerializer(serializers.ModelSerializer):
             'plan_id', 'name', 'duration', 'plan_type', 'price',
             'original_price', 'price_per_month', 'discount_text',
             'icon', 'color', 'gradient', 'popular', 'features',
-            'active', 'display_order', 'created_at', 'updated_at'
+            'active', 'display_order', 'created_at', 'updated_at',
+            # ── NEW ──
+            'daily_swipe_limit',
+            'monthly_connection_limit',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
     def validate_price(self, value):
         if value <= 0:
             raise serializers.ValidationError("Price must be greater than 0")
+        return value
+
+    def validate_daily_swipe_limit(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError("Daily swipe limit must be at least 1")
+        return value
+
+    def validate_monthly_connection_limit(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError("Monthly connection limit must be at least 1")
         return value
 
     def validate(self, attrs):

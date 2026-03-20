@@ -23,6 +23,7 @@ import {
   ChevronRight,
   PartyPopper,
   XCircle,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -31,7 +32,6 @@ import TopBar from "@/components/layout/TopBar";
 import { profileService, SubscriptionInfo } from "@/services/profileService";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
-
 
 // --- THEME CONSTANTS ---
 const PRIMARY_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B]";
@@ -55,6 +55,9 @@ interface PremiumPlan {
   popular: boolean;
   features: string[];
   active: boolean;
+  // ── NEW ──────────────────────────────────────────────────────────────
+  daily_swipe_limit: number | null;        // null = unlimited
+  monthly_connection_limit: number | null; // null = unlimited
 }
 
 interface PromoDiscount {
@@ -65,7 +68,7 @@ interface PromoDiscount {
   finalPrice: number;
 }
 
-// ─── Result Modal (success / error) ──────────────────────────────────────────
+// ─── Result Modal ─────────────────────────────────────────────────────────────
 interface ResultModalProps {
   open: boolean;
   type: "success" | "error";
@@ -97,14 +100,11 @@ const ResultModal: React.FC<ResultModalProps> = ({
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
             className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl overflow-hidden pointer-events-auto"
           >
-            {/* Coloured top strip */}
             <div className={`h-2 w-full ${type === "success"
               ? "bg-gradient-to-r from-teal-400 to-emerald-500"
               : "bg-gradient-to-r from-red-400 to-rose-500"}`}
             />
-
             <div className="px-8 pt-8 pb-6 text-center">
-              {/* Icon */}
               <div className={`w-16 h-16 rounded-full mx-auto mb-5 flex items-center justify-center
                 ${type === "success" ? "bg-teal-50" : "bg-red-50"}`}>
                 {type === "success"
@@ -112,15 +112,12 @@ const ResultModal: React.FC<ResultModalProps> = ({
                   : <XCircle className="w-8 h-8 text-red-500" />
                 }
               </div>
-
               <h2 className="text-xl font-black text-slate-900 mb-3">{title}</h2>
-
               <div className="space-y-1.5 mb-6">
                 {lines.map((line, i) => (
                   <p key={i} className="text-sm text-slate-500 font-medium">{line}</p>
                 ))}
               </div>
-
               <div className="flex flex-col gap-2">
                 {onAction && actionLabel && (
                   <button
@@ -128,8 +125,7 @@ const ResultModal: React.FC<ResultModalProps> = ({
                     className={`w-full py-3.5 rounded-2xl font-bold text-sm text-white
                       ${type === "success"
                         ? "bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg shadow-teal-500/20"
-                        : "bg-slate-900"
-                      }`}
+                        : "bg-slate-900"}`}
                   >
                     {actionLabel}
                   </button>
@@ -148,6 +144,39 @@ const ResultModal: React.FC<ResultModalProps> = ({
     )}
   </AnimatePresence>
 );
+
+// ─── Limit Badge ──────────────────────────────────────────────────────────────
+// Small pill shown on each plan card for swipe + connection limits
+const LimitBadge: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: number | null;
+  color: "teal" | "purple";
+}> = ({ icon, label, value, color }) => {
+  const isUnlimited = value === null;
+  const colorMap = {
+    teal: isUnlimited
+      ? "bg-teal-50 text-teal-700 border-teal-100"
+      : "bg-teal-50/60 text-teal-600 border-teal-100",
+    purple: isUnlimited
+      ? "bg-purple-50 text-purple-700 border-purple-100"
+      : "bg-purple-50/60 text-purple-600 border-purple-100",
+  };
+
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${colorMap[color]}`}>
+      {icon}
+      {isUnlimited ? (
+        <span className="flex items-center gap-1">
+          <InfinityIcon className="w-3 h-3" />
+          {label}
+        </span>
+      ) : (
+        <span>{value} {label}</span>
+      )}
+    </div>
+  );
+};
 
 // --- HELPER: Get Token ---
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
@@ -375,7 +404,6 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
   const [showUpgradeSection, setShowUpgradeSection] = useState(false);
   const [processing, setProcessing] = useState(false);
 
-  // ── Result modal state
   const [resultModal, setResultModal] = useState<{
     open: boolean;
     type: "success" | "error";
@@ -388,7 +416,6 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
   const showSuccess = (title: string, lines: string[], action?: () => void, actionLabel?: string) => {
     setResultModal({ open: true, type: "success", title, lines, action, actionLabel });
   };
-
   const showError = (title: string, lines: string[]) => {
     setResultModal({ open: true, type: "error", title, lines });
   };
@@ -399,17 +426,27 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
     try {
       setLoading(true);
       setError(null);
-      const baseUrl = `${API_BASE}/api`;
 
       const [plansRes, profileResult] = await Promise.all([
-        fetch(`${baseUrl}/admin/premium/plans/`),
+        fetch(`${API_BASE}/api/admin/premium/plans/`),
         profileService.getProfile().catch(() => null),
       ]);
 
       if (!plansRes.ok) throw new Error("Failed to fetch plans");
 
       const plansData = await plansRes.json();
-      const cleanPlans: PremiumPlan[] = Array.isArray(plansData) ? plansData : (plansData.results || []);
+      const raw: any[] = Array.isArray(plansData) ? plansData : (plansData.results || []);
+
+      // Normalise the two new fields so the rest of the component can rely on null
+      const cleanPlans: PremiumPlan[] = raw.map((p) => ({
+        ...p,
+        price: typeof p.price === "string" ? parseFloat(p.price) : p.price,
+        original_price: p.original_price ? parseFloat(p.original_price) : undefined,
+        price_per_month: typeof p.price_per_month === "string" ? parseFloat(p.price_per_month) : p.price_per_month,
+        daily_swipe_limit: p.daily_swipe_limit ?? null,
+        monthly_connection_limit: p.monthly_connection_limit ?? null,
+      }));
+
       setPlans(cleanPlans);
 
       if (profileResult?.exists) {
@@ -437,10 +474,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
 
   const handlePurchase = async (planId: string) => {
     const authData = getAuthToken();
-    if (!authData) {
-      toast.error("Please log in first.");
-      return;
-    }
+    if (!authData) { toast.error("Please log in first."); return; }
 
     setProcessing(true);
 
@@ -461,7 +495,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
 
       const order = await orderRes.json();
 
-      // ── Free plan activation (100% promo discount)
+      // Free plan activation
       if (order.free_activation) {
         setProcessing(false);
         showSuccess(
@@ -477,7 +511,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
         return;
       }
 
-      // ── Razorpay payment flow
+      // Razorpay flow
       const rzp = new (window as any).Razorpay({
         key: order.razorpay_key,
         amount: order.amount,
@@ -510,7 +544,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
               [
                 `Plan: ${verifyData.plan.name}`,
                 `Expires: ${new Date(verifyData.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`,
-                "You now have unlimited swipes and all premium features.",
+                "Your new swipe and connection limits are now active.",
               ],
               () => navigate("/home"),
               "Start Swiping →"
@@ -569,7 +603,6 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
     <div className="min-h-screen bg-[#FAFAFA] font-sans pb-20">
       <TopBar userName={userName} onLogout={onLogout} />
 
-      {/* ── Result Modal ── */}
       <ResultModal
         open={resultModal.open}
         type={resultModal.type}
@@ -582,7 +615,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
 
       <div className="max-w-6xl mx-auto px-4 pt-24 pb-12">
 
-        {/* ── CURRENT PLAN BANNER ── */}
+        {/* Current Plan Banner */}
         {isPremiumUser && currentSubscription && (
           <CurrentPlanBanner
             subscription={currentSubscription}
@@ -590,7 +623,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
           />
         )}
 
-        {/* ── HERO ── */}
+        {/* Hero */}
         <AnimatePresence mode="wait">
           {(!isPremiumUser || showUpgradeSection) && (
             <motion.div
@@ -622,7 +655,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
           )}
         </AnimatePresence>
 
-        {/* ── PREMIUM USER: features already unlocked ── */}
+        {/* Premium user features already unlocked */}
         {isPremiumUser && !showUpgradeSection && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-2xl mx-auto">
             <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-8">
@@ -633,7 +666,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { icon: Eye, label: "See who liked you" },
-                  { icon: Zap, label: "Unlimited swipes" },
+                  { icon: Zap, label: "More swipes per day" },
                   { icon: MapPin, label: "Expand search radius" },
                   { icon: MessageCircle, label: "Priority messaging" },
                   { icon: TrendingUp, label: "Boost profile visibility" },
@@ -658,7 +691,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
           </motion.div>
         )}
 
-        {/* ── PLANS GRID ── */}
+        {/* Plans Grid */}
         <AnimatePresence>
           {(!isPremiumUser || showUpgradeSection) && (
             <motion.div
@@ -702,6 +735,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
                         </div>
                       )}
 
+                      {/* Plan header */}
                       <div className="flex items-start justify-between mb-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-14 h-14 rounded-2xl ${plan.gradient || "bg-slate-100"} flex items-center justify-center text-white shadow-lg shadow-gray-200`}>
@@ -714,7 +748,8 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
                         </div>
                       </div>
 
-                      <div className="mb-6">
+                      {/* Price */}
+                      <div className="mb-5">
                         <div className="flex items-baseline gap-2 mb-1">
                           <span className="text-4xl font-black text-slate-900">₹{Math.floor(displayPrice)}</span>
                           {(plan.original_price || (promoDiscount && isSelected)) && (
@@ -731,9 +766,26 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
                         </div>
                       </div>
 
-                      <div className="h-px bg-slate-100 mb-6" />
+                      {/* ── NEW: Limit badges ── */}
+                      <div className="flex flex-wrap gap-2 mb-5">
+                        <LimitBadge
+                          icon={<Zap className="w-3 h-3" />}
+                          label="swipes/day"
+                          value={plan.daily_swipe_limit}
+                          color="teal"
+                        />
+                        <LimitBadge
+                          icon={<TrendingUp className="w-3 h-3" />}
+                          label="connections/mo"
+                          value={plan.monthly_connection_limit}
+                          color="purple"
+                        />
+                      </div>
 
-                      <ul className="space-y-4 mb-8 flex-1">
+                      <div className="h-px bg-slate-100 mb-5" />
+
+                      {/* Features */}
+                      <ul className="space-y-3.5 mb-8 flex-1">
                         {plan.features.map((f, i) => (
                           <li key={i} className="flex items-start gap-3 text-sm text-slate-600 font-medium">
                             <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isSelected ? "bg-teal-100 text-teal-600" : "bg-slate-100 text-slate-300"}`}>
@@ -760,7 +812,7 @@ const PremiumPage = ({ onLogout }: PremiumPageProps) => {
                 })}
               </div>
 
-              {/* Footer: promo + pay button */}
+              {/* Promo + Pay button */}
               <div className="max-w-md mx-auto space-y-6">
                 <PromoCodeInput
                   selectedPlan={selectedPlan}

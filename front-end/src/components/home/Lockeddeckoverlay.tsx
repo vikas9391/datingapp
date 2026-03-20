@@ -1,29 +1,87 @@
 // src/components/home/LockedDeckOverlay.tsx
 import React from "react";
 import { motion } from "framer-motion";
-import { Lock, Crown, Sparkles } from "lucide-react";
+import { Lock, Crown, Sparkles, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface LockedDeckOverlayProps {
   onUnlockClick: () => void;
+  // FIX: added so the overlay shows the right copy for premium vs free users
+  isPremium?: boolean;
 }
 
-const LockedDeckOverlay: React.FC<LockedDeckOverlayProps> = ({ onUnlockClick }) => {
+const LockedDeckOverlay: React.FC<LockedDeckOverlayProps> = ({
+  onUnlockClick,
+  isPremium = false,
+}) => {
   const navigate = useNavigate();
 
+  // Premium user hit their plan's daily cap
+  if (isPremium) {
+    return (
+      <div className="absolute inset-0 z-20 rounded-[32px] md:rounded-[40px] overflow-hidden">
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-md rounded-[32px] md:rounded-[40px]" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="relative z-10 h-full flex flex-col items-center justify-center gap-6 px-8 text-center"
+        >
+          <div className="relative">
+            <motion.div
+              animate={{ scale: [1, 1.12, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 rounded-full bg-teal-500/10"
+            />
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-2xl shadow-teal-500/30 relative">
+              <RefreshCw className="w-9 h-9 text-white" strokeWidth={2.5} />
+            </div>
+          </div>
+
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-100 rounded-full mb-3">
+              <Crown className="w-3 h-3 text-teal-600 fill-teal-600" />
+              <span className="text-teal-700 text-[10px] font-black uppercase tracking-widest">Daily Limit Reached</span>
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 leading-tight mb-2">
+              Come back tomorrow
+            </h3>
+            <p className="text-slate-500 text-sm leading-relaxed max-w-[240px] mx-auto">
+              You've used all your swipes for today. Your limit resets at midnight.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2.5 w-full max-w-[260px]">
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate("/premium")}
+              className="w-full py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-teal-500 to-emerald-500 text-white flex items-center justify-center gap-2 shadow-xl shadow-teal-500/20 hover:opacity-90 transition-opacity"
+            >
+              <Crown className="w-4 h-4 text-white fill-white" />
+              Upgrade for More Swipes
+            </motion.button>
+            <p className="text-xs text-slate-400 text-center">
+              Upgrade your plan to get more daily swipes
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Free user hit the 3-swipe limit
   return (
     <div className="absolute inset-0 z-20 rounded-[32px] md:rounded-[40px] overflow-hidden">
-      {/* Blurred background peek */}
+      {/* Blurred background */}
       <div className="absolute inset-0 bg-white/70 backdrop-blur-md rounded-[32px] md:rounded-[40px]" />
 
-      {/* Frosted content */}
       <motion.div
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 28 }}
         className="relative z-10 h-full flex flex-col items-center justify-center gap-6 px-8 text-center"
       >
-        {/* Lock icon with pulse ring */}
+        {/* Lock icon */}
         <div className="relative">
           <motion.div
             animate={{ scale: [1, 1.12, 1] }}
@@ -51,6 +109,7 @@ const LockedDeckOverlay: React.FC<LockedDeckOverlayProps> = ({ onUnlockClick }) 
 
         {/* Buttons */}
         <div className="flex flex-col gap-2.5 w-full max-w-[260px]">
+          {/* Primary: go straight to premium page */}
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/premium")}
@@ -59,8 +118,11 @@ const LockedDeckOverlay: React.FC<LockedDeckOverlayProps> = ({ onUnlockClick }) 
             <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400" />
             Upgrade to Premium
           </motion.button>
+
+          {/* FIX: "See what's included" now navigates to /premium instead of
+              calling onUnlockClick which previously just showed a toast */}
           <button
-            onClick={onUnlockClick}
+            onClick={() => navigate("/premium")}
             className="w-full py-3 rounded-2xl font-semibold text-xs text-slate-500 bg-white/80 border border-slate-200 hover:bg-white transition-colors"
           >
             See what's included →

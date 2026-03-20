@@ -20,6 +20,7 @@ import random
 from django.db.models import Q
 import string
 
+
 from math import radians, sin, cos, asin, sqrt
 
 from admin_panel.models import PremiumPlan, PromoCode, UserReport
@@ -50,8 +51,10 @@ from profiles.managers import MySQLProfileManager as FirebaseProfileManager
 from .razorpay_client import client
 from .ws import notify_user
 
-User = get_user_model()
+from django.contrib.auth.models import User
 
+from django.db.models import Count         
+from .models import Chat, ChatParticipant   
 
 # ---------- OTP helpers ----------
 
@@ -875,17 +878,66 @@ class LikeProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from .models import NotificationPreference   # local import avoids circular issues
+        from .models import NotificationPreference
+        from django.utils import timezone as tz
 
         from_email = (request.user.email or request.user.username).lower()
         to_email   = request.data.get("to_email", "").lower()
 
         if not to_email:
-            return Response({"error": "to_email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "to_email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        result: dict = FirebaseLikeManager.send_like(from_email=from_email, to_email=to_email)
+        # ── Enforce monthly connection limit ──────────────────────────────
+        try:
+            sender_profile = UserProfile.objects.get(user=request.user)
 
-        # ── MATCH: both users liked each other ──────────────────────────────
+            is_premium = (
+                sender_profile.premium
+                and hasattr(sender_profile, 'premium_expires_at')
+                and sender_profile.premium_expires_at
+                and sender_profile.premium_expires_at > tz.now()
+            )
+
+            if is_premium:
+                try:
+                    plan = PremiumPlan.objects.get(name=sender_profile.premium_plan)
+
+                    if plan.monthly_connection_limit is not None:
+                        month_start = tz.now().replace(
+                            day=1, hour=0, minute=0, second=0, microsecond=0
+                        )
+                        monthly_likes = Like.objects.filter(
+                            from_email=from_email,
+                            created_at__gte=month_start
+                        ).count()
+
+                        if monthly_likes >= plan.monthly_connection_limit:
+                            return Response(
+                                {
+                                    'error': f'Monthly connection limit of {plan.monthly_connection_limit} reached for your {plan.name} plan.',
+                                    'likes_this_month': monthly_likes,
+                                    'limit': plan.monthly_connection_limit,
+                                },
+                                status=status.HTTP_403_FORBIDDEN,
+                            )
+                    # monthly_connection_limit is None = unlimited, fall through
+
+                except PremiumPlan.DoesNotExist:
+                    pass  # Plan not found — allow the like
+
+            # Free users have no connection limit (only swipe limit applies)
+
+        except UserProfile.DoesNotExist:
+            pass  # No profile found — allow the like, don't block
+
+        # ── Existing like logic (unchanged from your original) ────────────
+        result: dict = FirebaseLikeManager.send_like(
+            from_email=from_email, to_email=to_email
+        )
+
         if result.get("status") == "matched":
             match_data: dict = result["match"]
             match_id  = match_data["match_id"]
@@ -894,7 +946,6 @@ class LikeProfileView(APIView):
             with transaction.atomic():
                 match_obj = Match.objects.get(pk=match_id)
 
-                # Respect each user's "matches" notification preference
                 to_create = []
                 for email in (from_email, to_email):
                     prefs = NotificationPreference.for_user(email)
@@ -910,7 +961,6 @@ class LikeProfileView(APIView):
                 if to_create:
                     Notification.objects.bulk_create(to_create)
 
-            # WebSocket push (always — the client can ignore silently)
             notify_user(from_email, {
                 "type": "MATCH_CREATED",
                 "match_id": match_id,
@@ -929,7 +979,7 @@ class LikeProfileView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # ── LIKE only (no match yet) — notify recipient if they allow it ───
+        # ── Like only (no match yet) ───────────────────────────────────────
         recipient_prefs = NotificationPreference.for_user(to_email)
         if recipient_prefs.notif_likes:
             Notification.objects.create(
@@ -945,7 +995,7 @@ class LikeProfileView(APIView):
             })
 
         return Response(result, status=status.HTTP_200_OK)
-        
+            
 class MatchedChatsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1209,7 +1259,7 @@ class CreateOrderView(APIView):
             if promo:
                 amount = promo.apply_discount(amount)
 
-        order = client.order.create({
+        order: dict = client.order.create({  # type: ignore[attr-defined]
             "amount": int(amount * 100),
             "currency": "INR",
             "payment_capture": 1,
@@ -1222,7 +1272,6 @@ class CreateOrderView(APIView):
             "razorpay_key": settings.RAZORPAY_KEY_ID,
             "plan_name": plan.name,
         })
-
 
 class VerifyPaymentView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1503,11 +1552,7 @@ class UnreadChatCountView(APIView):
 
         if not chat_ids:
             return Response({"unread_count": 0}, status=status.HTTP_200_OK)
-
-        # Count distinct chats that have at least one unread message
-        # where the sender is NOT the current user (i.e. sent by the other person)
-        from django.db.models import Count
-
+        
         unread_chat_count = (
             Message.objects.filter(
                 chat_id__in=chat_ids,
@@ -1702,7 +1747,6 @@ class DeleteAccountView(APIView):
             )
             chat_ids = list(user_matches.values_list("chat_id", flat=True))
             Message.objects.filter(chat_id__in=chat_ids).delete()
-            from .models import Chat, ChatParticipant
             ChatParticipant.objects.filter(email=email).delete()
             user_matches.delete()
 
