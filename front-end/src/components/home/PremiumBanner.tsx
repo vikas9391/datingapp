@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Crown, Sparkles, Zap } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
-  const jwtKeys = ["access_token", "accessToken", "jwt", "access"];
+  const jwtKeys   = ["access_token", "accessToken", "jwt", "access"];
   const tokenKeys = ["token", "authToken", "auth_token", "admin_token"];
   for (const key of jwtKeys) {
     const token = localStorage.getItem(key) || sessionStorage.getItem(key);
@@ -18,7 +19,7 @@ const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
 };
 
 const PremiumBanner: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -26,11 +27,9 @@ const PremiumBanner: React.FC = () => {
       try {
         const authData = getAuthToken();
         if (!authData) { setIsPremium(false); return; }
-
         const response = await fetch(`${API_BASE}/api/profile/`, {
           headers: { Authorization: `${authData.type} ${authData.token}` },
         });
-
         if (response.ok) {
           const data = await response.json();
           setIsPremium(data.premium === true);
@@ -41,85 +40,253 @@ const PremiumBanner: React.FC = () => {
         setIsPremium(false);
       }
     };
-
     checkPremium();
   }, []);
 
-  // Loading skeleton
+  /* ── Loading skeleton ── */
   if (isPremium === null) {
     return (
-      <div className="h-full min-h-[180px] w-full rounded-[24px] bg-gray-100 animate-pulse">
-        <div className="h-full min-h-[180px] rounded-[24px] bg-gradient-to-br from-gray-200 to-gray-100" />
+      <div
+        className="h-full min-h-[180px] w-full rounded-[24px] border"
+        style={{
+          background: "linear-gradient(145deg, #1a1a1a, #110c05)",
+          borderColor: "rgba(249,115,22,0.18)",
+          animation: "shimmerLoad 1.6s infinite linear",
+        }}
+      >
+        <style>{`
+          @keyframes shimmerLoad {
+            0%   { opacity: 0.5; }
+            50%  { opacity: 0.8; }
+            100% { opacity: 0.5; }
+          }
+        `}</style>
       </div>
     );
   }
 
-  // Premium active — show a classy confirmation card
+  /* ════════════════════════════════════════
+     PREMIUM ACTIVE — classy gold confirmation
+  ════════════════════════════════════════ */
   if (isPremium === true) {
     return (
-      <div className="h-full min-h-[180px] flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-400 to-orange-400 rounded-[24px] p-1 shadow-xl w-full">
-        <div className="w-full h-full bg-black/10 backdrop-blur-sm rounded-[20px] p-1 text-white flex flex-col justify-center">
-          <div className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <>
+        <style>{`
+          @keyframes premiumShimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position:  400px 0; }
+          }
+          @keyframes crownFloat {
+            0%,100% { transform: translateY(0) rotate(-3deg); }
+            50%     { transform: translateY(-5px) rotate(3deg); }
+          }
+          @keyframes starSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+          }
+        `}</style>
+
+        <div
+          className="h-full min-h-[180px] w-full rounded-[24px] relative overflow-hidden border"
+          style={{
+            background: "linear-gradient(135deg, #1c1408 0%, #2a1a06 40%, #1a1208 100%)",
+            borderColor: "rgba(251,191,36,0.35)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(251,191,36,0.1), inset 0 1px 0 rgba(251,191,36,0.12)",
+          }}
+        >
+          {/* Animated gold shimmer overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: "linear-gradient(90deg, transparent 25%, rgba(251,191,36,0.07) 50%, transparent 75%)",
+              backgroundSize: "400px 100%",
+              animation: "premiumShimmer 3s infinite linear",
+            }}
+          />
+          {/* Radial top-left glow */}
+          <div
+            className="absolute top-0 left-0 w-48 h-48 pointer-events-none"
+            style={{ background: "radial-gradient(circle at top left, rgba(251,191,36,0.12) 0%, transparent 65%)" }}
+          />
+          {/* Top accent bar */}
+          <div
+            className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg, transparent 8%, rgba(251,191,36,0.6) 50%, transparent 92%)" }}
+          />
+
+          <div className="relative z-10 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 h-full">
             <div className="flex items-center gap-3">
-              {/* Crown icon */}
-              <div className="bg-white/20 rounded-full p-2.5 shrink-0">
-                <svg
-                  className="w-6 h-6 text-white"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M2 19h20v2H2v-2zM2 6l5 7 5-8 5 8 5-7v11H2V6z" />
-                </svg>
+              {/* Floating crown */}
+              <div
+                className="rounded-full p-2.5 shrink-0"
+                style={{
+                  background: "rgba(251,191,36,0.15)",
+                  border: "1px solid rgba(251,191,36,0.35)",
+                  boxShadow: "0 0 16px rgba(251,191,36,0.2)",
+                }}
+              >
+                <Crown
+                  className="w-6 h-6"
+                  style={{
+                    color: "#fbbf24",
+                    fill: "#fbbf24",
+                    animation: "crownFloat 3.5s ease-in-out infinite",
+                  }}
+                />
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-widest opacity-80">
+                <div
+                  className="text-[10px] font-semibold uppercase tracking-widest mb-0.5"
+                  style={{ color: "#d97706" }}
+                >
                   Active Plan
                 </div>
-                <h3 className="text-lg md:text-xl font-bold leading-tight mt-0.5">
+                {/* CONTRAST FIX: bright readable heading */}
+                <h3 className="text-lg md:text-xl font-black leading-tight" style={{ color: "#f0e8de" }}>
                   Premium Member ✦
                 </h3>
-                <p className="text-xs md:text-sm opacity-80 mt-0.5">
+                <p className="text-xs md:text-sm mt-0.5" style={{ color: "#c4a882" }}>
                   Unlimited views • See all your likes
                 </p>
               </div>
             </div>
+
             <button
               onClick={() => navigate("/premium")}
-              className="w-full md:w-auto bg-white/20 border border-white/30 text-white px-5 py-2.5 rounded-full text-xs md:text-sm font-semibold hover:bg-white/30 transition-colors backdrop-blur-sm"
+              className="w-full md:w-auto px-5 py-2.5 rounded-full text-xs md:text-sm font-semibold transition-all active:scale-95"
+              style={{
+                background: "rgba(251,191,36,0.15)",
+                border: "1px solid rgba(251,191,36,0.4)",
+                color: "#fbbf24",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                el.style.background = "rgba(251,191,36,0.25)";
+                el.style.borderColor = "rgba(251,191,36,0.6)";
+                el.style.boxShadow = "0 4px 16px rgba(251,191,36,0.2)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                el.style.background = "rgba(251,191,36,0.15)";
+                el.style.borderColor = "rgba(251,191,36,0.4)";
+                el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+              }}
             >
               Manage Plan
             </button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // Not premium — show upgrade banner
+  /* ════════════════════════════════════════
+     FREE USER — upgrade banner
+  ════════════════════════════════════════ */
   return (
-    <div className="h-full min-h-[180px] flex items-center justify-center bg-gradient-to-br from-orange-500 to-rose-500 rounded-[24px] p-1 shadow-xl w-full">
-      <div className="w-full h-full bg-white/10 backdrop-blur-sm rounded-[20px] p-1 text-white flex flex-col justify-center">
-        <div className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <>
+      <style>{`
+        @keyframes upgradeGlow {
+          0%,100% { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(249,115,22,0.1); }
+          50%     { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px 2px rgba(249,115,22,0.18); }
+        }
+        @keyframes zapBounce {
+          0%,100% { transform: scale(1) rotate(-8deg); }
+          50%     { transform: scale(1.15) rotate(8deg); }
+        }
+        @keyframes upgradeShimmer {
+          0%   { background-position: -400px 0; }
+          100% { background-position:  400px 0; }
+        }
+      `}</style>
+
+      <div
+        className="h-full min-h-[180px] w-full rounded-[24px] relative overflow-hidden border"
+        style={{
+          background: "linear-gradient(135deg, #1c1208 0%, #2a1406 40%, #181008 100%)",
+          borderColor: "rgba(249,115,22,0.3)",
+          animation: "upgradeGlow 3.5s ease-in-out infinite",
+        }}
+      >
+        {/* Moving shimmer */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "linear-gradient(90deg, transparent 25%, rgba(249,115,22,0.06) 50%, transparent 75%)",
+            backgroundSize: "400px 100%",
+            animation: "upgradeShimmer 2.8s infinite linear",
+          }}
+        />
+        {/* Top glow */}
+        <div
+          className="absolute top-0 left-0 w-64 h-32 pointer-events-none"
+          style={{ background: "radial-gradient(circle at top left, rgba(249,115,22,0.12) 0%, transparent 65%)" }}
+        />
+        {/* Top accent */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent 8%, rgba(249,115,22,0.55) 50%, transparent 92%)" }}
+        />
+        {/* Bottom glow */}
+        <div
+          className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none"
+          style={{ background: "radial-gradient(circle at bottom right, rgba(251,191,36,0.06) 0%, transparent 65%)" }}
+        />
+
+        <div className="relative z-10 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 h-full">
           <div>
-            <div className="text-[10px] md:text-xs font-semibold uppercase opacity-90 tracking-widest">
+            {/* Label chip */}
+            <div
+              className="inline-flex items-center gap-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-full mb-2 border"
+              style={{
+                background: "rgba(249,115,22,0.12)",
+                borderColor: "rgba(249,115,22,0.35)",
+                color: "#f97316",
+              }}
+            >
+              <Zap
+                className="w-3 h-3"
+                style={{
+                  color: "#fbbf24",
+                  fill: "#fbbf24",
+                  animation: "zapBounce 2s ease-in-out infinite",
+                }}
+              />
               Premium
             </div>
-            <h3 className="text-lg md:text-xl font-bold mt-1 leading-tight">
+
+            {/* CONTRAST FIX: was white on a gradient — now explicit bright token */}
+            <h3 className="text-lg md:text-xl font-black mt-1 leading-tight" style={{ color: "#f0e8de" }}>
               Get your best matches
             </h3>
-            <p className="text-xs md:text-sm mt-1 opacity-90">
+            <p className="text-xs md:text-sm mt-1" style={{ color: "#c4a882" }}>
               See who likes you • Unlimited views
             </p>
           </div>
+
           <button
             onClick={() => navigate("/premium")}
-            className="w-full md:w-auto bg-white text-orange-600 px-5 py-2.5 rounded-full text-xs md:text-sm font-semibold shadow-sm hover:bg-orange-50 transition-colors"
+            className="w-full md:w-auto px-5 py-2.5 rounded-full text-xs md:text-sm font-black text-white transition-all active:scale-95 flex items-center justify-center gap-2"
+            style={{
+              background: "linear-gradient(135deg, #c2410c, #f97316, #fb923c)",
+              boxShadow: "0 6px 24px rgba(194,65,12,0.5)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 32px rgba(249,115,22,0.6)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.03)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 24px rgba(194,65,12,0.5)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+            }}
           >
+            <Sparkles className="w-3.5 h-3.5" />
             Upgrade Now →
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

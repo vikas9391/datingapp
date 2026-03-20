@@ -9,7 +9,6 @@ interface TopBarProps {
   onLogout?: () => void;
 }
 
-const PRIMARY_GRADIENT = "bg-gradient-to-r from-[#0095E0] via-[#00B4D8] to-[#00C98B]";
 const API_BASE = import.meta.env.VITE_API_BASE;
 
 const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
@@ -34,35 +33,23 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [resolvedUserName, setResolvedUserName] = useState<string>(userName);
 
-  // ── Fetch premium status + resolve user name (once on mount)
   useEffect(() => {
     const checkPremium = async () => {
       try {
         const authData = getAuthToken();
         if (!authData) { setIsPremium(false); return; }
-
         const response = await fetch(`${API_BASE}/api/profile/`, {
           headers: { Authorization: `${authData.type} ${authData.token}` },
         });
-
         if (response.ok) {
           const data = await response.json();
           setIsPremium(data.premium === true);
-
-          // Resolve display name from profile — try multiple field names
           const name =
-            data.first_name ||
-            data.firstName ||
-            data.name ||
-            data.username ||
-            localStorage.getItem("user_name") ||
-            localStorage.getItem("name") ||
-            data.email?.split("@")[0] ||
-            userName;
-
+            data.first_name || data.firstName || data.name || data.username ||
+            localStorage.getItem("user_name") || localStorage.getItem("name") ||
+            data.email?.split("@")[0] || userName;
           if (name && name !== "User") {
             setResolvedUserName(name);
-            // Cache it so other pages get it immediately on next render
             localStorage.setItem("user_name", name);
           }
         } else {
@@ -75,7 +62,6 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
     checkPremium();
   }, []);
 
-  // ── If userName prop changes (e.g. home page passes it in), prefer it
   useEffect(() => {
     if (userName && userName !== "User") {
       setResolvedUserName(userName);
@@ -83,7 +69,6 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
     }
   }, [userName]);
 
-  // ── Fetch unread notification count
   const fetchUnreadNotifCount = useCallback(async () => {
     try {
       const authData = getAuthToken();
@@ -95,18 +80,11 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
         const data = await res.json();
         setUnreadNotifCount(data.unread_count ?? 0);
       }
-    } catch {
-      // silent fail
-    }
+    } catch { /* silent */ }
   }, []);
 
-  // ── Fetch unread chat count (single endpoint)
   const fetchUnreadChatCount = useCallback(async () => {
-    // Don't show badge when user is already on the chats page
-    if (location.pathname === "/chats") {
-      setUnreadChatCount(0);
-      return;
-    }
+    if (location.pathname === "/chats") { setUnreadChatCount(0); return; }
     try {
       const authData = getAuthToken();
       if (!authData) return;
@@ -117,19 +95,15 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
         const data = await res.json();
         setUnreadChatCount(data.unread_count ?? 0);
       }
-    } catch {
-      // silent fail
-    }
+    } catch { /* silent */ }
   }, [location.pathname]);
 
-  // ── Poll notifications every 15s + re-fetch on route change
   useEffect(() => {
     fetchUnreadNotifCount();
     const interval = setInterval(fetchUnreadNotifCount, 15000);
     return () => clearInterval(interval);
   }, [fetchUnreadNotifCount, location.pathname]);
 
-  // ── Poll chats every 10s + re-fetch on route change
   useEffect(() => {
     fetchUnreadChatCount();
     const interval = setInterval(fetchUnreadChatCount, 10000);
@@ -137,64 +111,80 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
   }, [fetchUnreadChatCount, location.pathname]);
 
   const navItems = [
-    {
-      icon: Home,
-      label: "Home",
-      path: "/home",
-      badgeCount: 0,
-      badgeColor: "",
-    },
-    {
-      icon: MessageCircle,
-      label: "Chats",
-      path: "/chats",
-      badgeCount: unreadChatCount,
-      badgeColor: "bg-blue-500",
-    },
-    {
-      icon: Bell,
-      label: "Notifications",
-      path: "/notifications",
-      badgeCount: unreadNotifCount,
-      badgeColor: "bg-red-500",
-    },
+    { icon: Home,          label: "Home",          path: "/home",          badgeCount: 0,               badgeColor: "" },
+    { icon: MessageCircle, label: "Chats",          path: "/chats",         badgeCount: unreadChatCount,  badgeColor: "bg-orange-500" },
+    { icon: Bell,          label: "Notifications",  path: "/notifications", badgeCount: unreadNotifCount, badgeColor: "bg-rose-500" },
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-4 lg:px-8 z-50 shadow-sm transition-all">
+    <header
+      className="fixed top-0 left-0 right-0 h-20 flex items-center justify-between px-4 lg:px-8 z-50 transition-all"
+      style={{
+        background: "rgba(16, 12, 4, 0.92)",
+        backdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(249,115,22,0.18)",
+        boxShadow: "0 4px 32px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(249,115,22,0.08)",
+      }}
+    >
       {/* 1. Logo */}
       <div className="flex items-center gap-3 w-[200px]">
         <Link to="/home" className="flex items-center gap-3 group">
           <div
-            className={`w-10 h-10 rounded-xl ${PRIMARY_GRADIENT} flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:scale-105 transition-transform duration-300`}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
+            style={{
+              background: "linear-gradient(135deg, #c2410c 0%, #ea580c 40%, #f97316 100%)",
+              boxShadow: "0 4px 16px rgba(249,115,22,0.4)",
+            }}
           >
             <Heart className="w-5 h-5 text-white fill-white" />
           </div>
-          <span className="font-extrabold text-[18px] tracking-tight text-slate-800 hidden sm:block group-hover:text-teal-600 transition-colors">
+          <span
+            className="font-extrabold text-[18px] tracking-tight hidden sm:block transition-colors duration-200"
+            style={{ color: "#f0e8de" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#fb923c")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#f0e8de")}
+          >
             The Dating App
           </span>
         </Link>
       </div>
 
       {/* 2. Navigation */}
-      <nav className="flex items-center gap-1 sm:gap-2 bg-slate-50/80 px-2 py-1.5 rounded-full border border-white shadow-inner">
+      <nav
+        className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 rounded-full"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(249,115,22,0.16)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        }}
+      >
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
-
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              title={item.label}
-              className="relative group"
-            >
+            <Link key={item.path} to={item.path} title={item.label} className="relative group">
               <div
                 className={cn(
-                  "p-3 rounded-full transition-all duration-300 flex items-center justify-center relative",
-                  isActive
-                    ? "bg-white text-[#0095E0] shadow-md scale-105"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-white/60"
+                  "p-3 rounded-full transition-all duration-300 flex items-center justify-center relative"
                 )}
+                style={
+                  isActive
+                    ? {
+                        background: "rgba(249,115,22,0.18)",
+                        color: "#fb923c",
+                        boxShadow: "0 0 14px rgba(249,115,22,0.2)",
+                        transform: "scale(1.05)",
+                        border: "1px solid rgba(249,115,22,0.3)",
+                      }
+                    : { color: "#4a3520" }
+                }
+                onMouseEnter={(e) => {
+                  if (!isActive)
+                    (e.currentTarget as HTMLElement).style.color = "#c4a882";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive)
+                    (e.currentTarget as HTMLElement).style.color = "#4a3520";
+                }}
               >
                 <item.icon
                   className={cn(
@@ -209,11 +199,12 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
                   <span
                     className={cn(
                       "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1",
-                      "border-2 border-white rounded-full shadow-sm",
+                      "border-2 rounded-full shadow-sm",
                       "text-white text-[9px] font-bold",
                       "flex items-center justify-center z-10 animate-pulse",
                       item.badgeColor
                     )}
+                    style={{ borderColor: "#100c04" }}
                   >
                     {item.badgeCount > 99 ? "99+" : item.badgeCount}
                   </span>
@@ -229,7 +220,19 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
         {isPremium === false && (
           <button
             onClick={() => navigate("/premium")}
-            className={`hidden md:flex items-center gap-1.5 px-5 py-2 rounded-full ${PRIMARY_GRADIENT} text-white text-xs font-bold shadow-md shadow-teal-500/20 hover:shadow-lg hover:shadow-teal-500/30 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer`}
+            className="hidden md:flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
+            style={{
+              background: "linear-gradient(135deg, #c2410c 0%, #ea580c 40%, #f97316 100%)",
+              boxShadow: "0 4px 14px rgba(249,115,22,0.35)",
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.boxShadow =
+                "0 6px 22px rgba(249,115,22,0.5)")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.boxShadow =
+                "0 4px 14px rgba(249,115,22,0.35)")
+            }
           >
             <Sparkles className="w-3.5 h-3.5 fill-white animate-pulse" />
             <span>Get Plus</span>
@@ -237,14 +240,24 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
         )}
 
         {isPremium === true && (
-          <div className="hidden md:flex items-center gap-1.5 px-5 py-2 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-white text-xs font-bold shadow-md shadow-amber-500/20">
-            <Sparkles className="w-3.5 h-3.5 fill-white" />
+          <div
+            className="hidden md:flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-xs font-bold"
+            style={{
+              background: "linear-gradient(135deg, #92400e, #c2410c)",
+              border: "1px solid rgba(251,191,36,0.3)",
+              boxShadow: "0 0 14px rgba(251,191,36,0.2)",
+              color: "#fbbf24",
+            }}
+          >
+            <Sparkles className="w-3.5 h-3.5 fill-current" />
             <span>Premium</span>
           </div>
         )}
 
-        <div className="pl-2 border-l border-slate-100 ml-2">
-          {/* ← resolvedUserName instead of userName */}
+        <div
+          className="pl-2 ml-2"
+          style={{ borderLeft: "1px solid rgba(249,115,22,0.18)" }}
+        >
           <ProfileDropdown userName={resolvedUserName} onLogout={onLogout} />
         </div>
       </div>
