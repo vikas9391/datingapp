@@ -1,5 +1,6 @@
 import { Mars, Venus, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/ThemeContext";
 
 interface GenderButtonProps {
   label: string;
@@ -12,12 +13,50 @@ export function AnimatedGenderButton({
   isSelected,
   onClick,
 }: GenderButtonProps) {
-  // Determine icon based on label
+  const { isDark } = useTheme();
   const Icon = label === "Man" ? Mars : Venus;
-  
-  // Specific colors for "Man" (Blue-ish) vs "Woman" (Pink-ish) or keep unified Teal?
-  // Let's stick to your Unified Teal Brand for consistency, but with subtle differences if desired.
-  // For now, we use the Brand Teal to match the "Bumble" clean aesthetic.
+
+  /* ─── Dark mode styles ─── */
+  const darkCard = isSelected
+    ? "border-orange-500 bg-[#1e1208] shadow-md shadow-orange-900/20"
+    : "border-[rgba(249,115,22,0.18)] bg-[#1a1a1a] hover:border-[rgba(249,115,22,0.45)]";
+
+  const darkBlobGrad = "from-orange-500/5 to-transparent";
+
+  const darkIconWrapSelected = "bg-orange-500 text-white scale-110";
+  const darkIconWrapUnselected =
+    "bg-[#242424] text-[#8a6540] group-hover:bg-[rgba(249,115,22,0.12)] group-hover:text-[#fb923c] group-hover:scale-110";
+
+  const darkLabel = isSelected
+    ? "text-[#fb923c]"
+    : "text-[#8a6540] group-hover:text-[#fb923c]";
+
+  const darkCheck = "text-orange-500 fill-[#1e1208]";
+
+  /* ─── Light mode styles ─── */
+  const lightCard = isSelected
+    ? "border-[#1d4ed8] bg-blue-50/60 shadow-md shadow-blue-200/50"
+    : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm";
+
+  const lightBlobGrad = "from-[#1d4ed8]/5 to-transparent";
+
+  const lightIconWrapSelected = "bg-[#1d4ed8] text-white scale-110";
+  const lightIconWrapUnselected =
+    "bg-gray-100 text-gray-400 group-hover:bg-blue-50 group-hover:text-[#1d4ed8] group-hover:scale-110";
+
+  const lightLabel = isSelected
+    ? "text-[#1d4ed8] font-extrabold"
+    : "text-gray-600 group-hover:text-[#1d4ed8]";
+
+  const lightCheck = "text-[#1d4ed8] fill-blue-50";
+
+  /* ─── Resolved ─── */
+  const cardStyle   = isDark ? darkCard   : lightCard;
+  const blobGrad    = isDark ? darkBlobGrad : lightBlobGrad;
+  const iconWrapSel = isDark ? darkIconWrapSelected   : lightIconWrapSelected;
+  const iconWrapUns = isDark ? darkIconWrapUnselected : lightIconWrapUnselected;
+  const labelStyle  = isDark ? darkLabel  : lightLabel;
+  const checkStyle  = isDark ? darkCheck  : lightCheck;
 
   return (
     <button
@@ -25,28 +64,25 @@ export function AnimatedGenderButton({
       onClick={onClick}
       className={cn(
         "relative group flex flex-col items-center justify-center h-32 w-full rounded-3xl border-2 transition-all duration-300 ease-out",
-        "hover:shadow-lg hover:-translate-y-1", // Hover lift effect
-        "active:scale-95 active:shadow-sm active:translate-y-0", // Click press effect
-        isSelected
-          ? "border-teal-500 bg-teal-50/50 shadow-md shadow-teal-500/10"
-          : "border-slate-100 bg-white hover:border-teal-200"
+        "hover:shadow-lg hover:-translate-y-1",
+        "active:scale-95 active:shadow-sm active:translate-y-0",
+        cardStyle
       )}
     >
-      {/* Animated Background Blob (Subtle) */}
-      <div 
+      {/* Animated background blob */}
+      <div
         className={cn(
-          "absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 bg-gradient-to-br from-teal-500/5 to-transparent",
+          "absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 bg-gradient-to-br",
+          blobGrad,
           isSelected && "opacity-100"
-        )} 
+        )}
       />
 
-      {/* Icon with Animation */}
+      {/* Icon */}
       <div
         className={cn(
           "p-3 rounded-full mb-3 transition-all duration-300",
-          isSelected
-            ? "bg-teal-500 text-white scale-110 rotate-0"
-            : "bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-500 group-hover:scale-110"
+          isSelected ? iconWrapSel : iconWrapUns
         )}
       >
         <Icon className="w-6 h-6" strokeWidth={2.5} />
@@ -56,13 +92,13 @@ export function AnimatedGenderButton({
       <span
         className={cn(
           "text-sm font-extrabold tracking-wide transition-colors duration-200",
-          isSelected ? "text-teal-700" : "text-slate-600 group-hover:text-teal-600"
+          labelStyle
         )}
       >
         {label}
       </span>
 
-      {/* Floating Checkmark for Selected State */}
+      {/* Floating checkmark */}
       <div
         className={cn(
           "absolute top-3 right-3 transition-all duration-500 transform",
@@ -71,7 +107,7 @@ export function AnimatedGenderButton({
             : "opacity-0 scale-50 translate-y-2"
         )}
       >
-        <CheckCircle2 className="w-5 h-5 text-teal-500 fill-teal-50" />
+        <CheckCircle2 className={cn("w-5 h-5", checkStyle)} />
       </div>
     </button>
   );

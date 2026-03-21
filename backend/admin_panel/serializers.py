@@ -385,10 +385,12 @@ class FooterLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = FooterLink
         fields = [
-            'id', 'title', 'url', 'link_type', 'open_new_tab',
+            'id', 'section',                       
+            'title', 'url', 'link_type', 'open_new_tab',
             'display_order', 'active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+        # section stays writable so POST/PATCH can set it
 
 
 class FooterSectionSerializer(serializers.ModelSerializer):

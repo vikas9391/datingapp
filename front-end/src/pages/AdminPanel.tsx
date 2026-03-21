@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { adminService } from '../services/profileService';
 import { NotificationProvider, useNotification } from './adminpages/Notificationsystem';
+import { useTheme } from '@/components/ThemeContext';
 
 // Import page components
 import Overview from './adminpages/Overview';
@@ -51,37 +52,35 @@ const tabInfo: Record<TabId, { title: string; description: string }> = {
   footer:         { title: 'Footer Management',      description: 'Manage footer sections and links'          },
 };
 
-// Reads the frontend URL from env — falls back to same origin minus admin port
 const FRONTEND_URL =
   (import.meta as any).env?.VITE_FRONTEND_URL ||
   (typeof window !== 'undefined'
     ? window.location.origin.replace(':5174', ':5173')
     : '#');
 
-// ─── View Website Button (used inside sidebar) ────────────────────────────────
-const ViewWebsiteButton: React.FC = () => (
+// ─── View Website Button ───────────────────────────────────────────────────────
+const ViewWebsiteButton: React.FC<{ isDark: boolean }> = ({ isDark }) => (
   <a
     href={FRONTEND_URL}
     target="_blank"
     rel="noopener noreferrer"
-    className="
-      group w-full flex items-center gap-3 px-4 py-3 rounded-lg
-      bg-gradient-to-r from-teal-50 to-blue-50
-      border border-teal-100 hover:border-teal-300
-      text-teal-700 hover:text-teal-800
-      transition-all duration-200 hover:shadow-sm hover:shadow-teal-500/10
-    "
+    className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-sm"
+    style={{
+      background: isDark
+        ? 'linear-gradient(to right,rgba(13,148,136,0.08),rgba(16,185,129,0.06))'
+        : 'linear-gradient(to right,#f0fdfa,#eff6ff)',
+      border: isDark ? '1px solid rgba(13,148,136,0.2)' : '1px solid #99f6e4',
+      color: isDark ? '#5eead4' : '#0d9488',
+    }}
   >
-    <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center shrink-0 shadow-sm">
+    <div
+      className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 shadow-sm"
+      style={{ background: 'linear-gradient(135deg,#0d9488,#3b82f6)' }}
+    >
       <Globe className="w-3 h-3 text-white" />
     </div>
     <span className="text-sm font-semibold flex-1 truncate">View Website</span>
-    <ExternalLink className="
-      w-3.5 h-3.5 shrink-0 text-teal-400
-      group-hover:text-teal-600
-      group-hover:translate-x-0.5 group-hover:-translate-y-0.5
-      transition-transform duration-150
-    " />
+    <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-150" />
   </a>
 );
 
@@ -90,6 +89,7 @@ const ViewWebsiteButton: React.FC = () => (
 const AdminPanelContent: React.FC = () => {
   const navigate = useNavigate();
   const { confirm } = useNotification();
+  const { isDark } = useTheme();
 
   useEffect(() => {
     if (!adminService.isAdmin()) navigate('/admin/login');
@@ -101,6 +101,40 @@ const AdminPanelContent: React.FC = () => {
     () => typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+
+  /* ─── Theme tokens ─── */
+  const pageBg          = isDark ? '#0d0d0d'  : '#f8faff';
+  const sidebarBg       = isDark ? '#1c1c1c'  : '#ffffff';
+  const sidebarBorder   = isDark ? 'rgba(249,115,22,0.1)' : '#e5e7eb';
+  const headerBg        = isDark ? '#1c1c1c'  : '#ffffff';
+  const headerBorder    = isDark ? 'rgba(249,115,22,0.1)' : '#e5e7eb';
+  const headerShadow    = isDark ? '0 2px 12px rgba(0,0,0,0.45)' : '0 1px 4px rgba(0,0,0,0.06)';
+  const txPrimary       = isDark ? '#f0e8de'  : '#111827';
+  const txMuted         = isDark ? '#8a6540'  : '#6b7280';
+  const dividerColor    = isDark ? 'rgba(249,115,22,0.08)' : '#e5e7eb';
+  const closeBtnHoverBg = isDark ? 'rgba(249,115,22,0.08)' : '#f3f4f6';
+  const closeBtnColor   = isDark ? '#8a6540'  : '#9ca3af';
+  /* Admin brand teal kept intentionally – admin identity is always teal */
+  const adminLogoGrad   = 'linear-gradient(135deg,#0d9488,#10b981)';
+  const adminCardBg     = isDark ? 'rgba(13,148,136,0.06)' : 'linear-gradient(135deg,#f0fdfa,#ecfdf5)';
+  const adminCardBorder = isDark ? 'rgba(13,148,136,0.18)' : '#99f6e4';
+  const adminLabelColor = isDark ? '#5eead4'  : '#0d9488';
+  const adminEmailColor = isDark ? '#8a6540'  : '#6b7280';
+  const tabActiveBg     = isDark ? 'rgba(13,148,136,0.08)' : 'linear-gradient(to right,#f0fdfa,#ecfdf5)';
+  const tabActiveBorder = isDark ? 'rgba(13,148,136,0.2)'  : '#99f6e4';
+  const tabActiveColor  = isDark ? '#5eead4'  : '#0d9488';
+  const tabIdleColor    = isDark ? '#8a6540'  : '#4b5563';
+  const tabHoverBg      = isDark ? 'rgba(249,115,22,0.04)' : '#f9fafb';
+  const tabHoverColor   = isDark ? '#c4a882'  : '#111827';
+  const hamburgerBg     = isDark ? 'rgba(249,115,22,0.08)' : '#f3f4f6';
+  const hamburgerHover  = isDark ? 'rgba(249,115,22,0.14)' : '#e5e7eb';
+  const hamburgerColor  = isDark ? '#c4a882'  : '#374151';
+  const bottomNavBg     = isDark ? '#1c1c1c'  : '#ffffff';
+  const bottomNavBorder = isDark ? 'rgba(249,115,22,0.1)'  : '#e5e7eb';
+  const bottomNavActive = isDark ? '#fb923c'  : '#0d9488';
+  const bottomNavIdle   = isDark ? '#8a6540'  : '#9ca3af';
+  const bottomNavHover  = isDark ? '#c4a882'  : '#374151';
+  const overlayBg       = isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)';
 
   const handleLogout = () => {
     confirm({
@@ -121,47 +155,59 @@ const AdminPanelContent: React.FC = () => {
   const current = tabInfo[activeTab];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex relative">
+    <div className="min-h-screen flex relative transition-colors duration-300" style={{ background: pageBg }}>
 
       {/* Mobile overlay backdrop */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          className="fixed inset-0 z-30 lg:hidden"
+          style={{ background: overlayBg }}
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* ── SIDEBAR ── */}
       <aside
-        className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col z-40 lg:z-20 shadow-lg transition-transform duration-300 ease-in-out"
+        className="fixed left-0 top-0 h-full w-64 flex flex-col z-40 lg:z-20 shadow-lg transition-transform duration-300 ease-in-out"
         style={{
+          background: sidebarBg,
+          borderRight: `1px solid ${sidebarBorder}`,
           transform: (drawerOpen || sidebarOpen) ? 'translateX(0)' : 'translateX(-100%)',
         }}
       >
         {/* Sidebar Header */}
-        <div className="p-5 border-b border-gray-200">
+        <div className="p-5" style={{ borderBottom: `1px solid ${dividerColor}` }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                style={{ background: adminLogoGrad }}
+              >
                 <Shield className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-lg font-bold text-gray-900">Admin Panel</h1>
+              <h1 className="text-lg font-bold" style={{ color: txPrimary }}>Admin Panel</h1>
             </div>
             <button
               onClick={() => { setSidebarOpen(false); setDrawerOpen(false); }}
-              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition shrink-0"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: closeBtnColor }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = closeBtnHoverBg)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               aria-label="Close sidebar"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Admin info card */}
-          <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-lg p-3 border border-teal-100">
-            <p className="text-xs text-teal-600 font-medium mb-0.5">Logged in as</p>
-            <p className="text-sm font-bold text-gray-900 truncate">{adminUser?.username || 'Admin'}</p>
+          <div
+            className="rounded-lg p-3"
+            style={{ background: adminCardBg, border: `1px solid ${adminCardBorder}` }}
+          >
+            <p className="text-xs font-medium mb-0.5" style={{ color: adminLabelColor }}>Logged in as</p>
+            <p className="text-sm font-bold truncate" style={{ color: txPrimary }}>{adminUser?.username || 'Admin'}</p>
             {adminUser?.email && (
-              <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
+              <p className="text-xs truncate mt-0.5" style={{ color: adminEmailColor }}>{adminUser.email}</p>
             )}
           </div>
         </div>
@@ -169,29 +215,44 @@ const AdminPanelContent: React.FC = () => {
         {/* Nav Links */}
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabSelect(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-left ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-600 font-semibold shadow-sm border border-teal-100'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <tab.icon className={`w-5 h-5 shrink-0 ${activeTab === tab.id ? tab.color : ''}`} />
-                <span className="truncate">{tab.label}</span>
-              </button>
-            ))}
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabSelect(tab.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-left"
+                  style={{
+                    background: isActive ? tabActiveBg : 'transparent',
+                    border: `1px solid ${isActive ? tabActiveBorder : 'transparent'}`,
+                    color: isActive ? tabActiveColor : tabIdleColor,
+                    fontWeight: isActive ? 600 : 400,
+                    boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.background = tabHoverBg;
+                      (e.currentTarget as HTMLElement).style.color = tabHoverColor;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      (e.currentTarget as HTMLElement).style.color = tabIdleColor;
+                    }
+                  }}
+                >
+                  <tab.icon className={`w-5 h-5 shrink-0 ${isActive ? tab.color : ''}`} />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </nav>
 
         {/* ── Bottom section: View Website + Logout ── */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
-          {/* View Website */}
-          <ViewWebsiteButton />
-
-          {/* Logout */}
+        <div className="p-4 space-y-2" style={{ borderTop: `1px solid ${dividerColor}` }}>
+          <ViewWebsiteButton isDark={isDark} />
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 font-semibold shadow-sm"
@@ -206,7 +267,10 @@ const AdminPanelContent: React.FC = () => {
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ml-0 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
 
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <header
+          className="sticky top-0 z-10"
+          style={{ background: headerBg, borderBottom: `1px solid ${headerBorder}`, boxShadow: headerShadow }}
+        >
           <div className="px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -214,17 +278,21 @@ const AdminPanelContent: React.FC = () => {
                 {/* Mobile hamburger */}
                 <button
                   onClick={() => { setSidebarOpen(true); setDrawerOpen(true); }}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 lg:hidden bg-gray-100 hover:bg-gray-200"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 lg:hidden"
+                  style={{ background: hamburgerBg, color: hamburgerColor }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = hamburgerHover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = hamburgerBg)}
                   aria-label="Open sidebar"
                 >
-                  <Menu className="w-5 h-5 text-gray-600" />
+                  <Menu className="w-5 h-5" />
                 </button>
 
                 {/* Desktop: show shield when sidebar is collapsed */}
                 {!sidebarOpen && (
                   <button
                     onClick={() => setSidebarOpen(true)}
-                    className="hidden lg:flex w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 items-center justify-center hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 shadow-sm shrink-0"
+                    className="hidden lg:flex w-10 h-10 rounded-xl items-center justify-center hover:opacity-90 transition-all duration-200 shadow-sm shrink-0"
+                    style={{ background: adminLogoGrad }}
                     aria-label="Open sidebar"
                   >
                     <Shield className="w-6 h-6 text-white" />
@@ -232,8 +300,8 @@ const AdminPanelContent: React.FC = () => {
                 )}
 
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-xl font-bold text-gray-900 truncate">{current.title}</h2>
-                  <p className="text-xs sm:text-sm text-gray-500 truncate hidden sm:block">{current.description}</p>
+                  <h2 className="text-base sm:text-xl font-bold truncate" style={{ color: txPrimary }}>{current.title}</h2>
+                  <p className="text-xs sm:text-sm truncate hidden sm:block" style={{ color: txMuted }}>{current.description}</p>
                 </div>
               </div>
 
@@ -243,7 +311,12 @@ const AdminPanelContent: React.FC = () => {
                   href={FRONTEND_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 border border-teal-100 hover:border-teal-300 text-teal-700 text-sm font-semibold transition-all group shrink-0"
+                  className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all group shrink-0"
+                  style={{
+                    background: isDark ? 'rgba(13,148,136,0.06)' : '#f0fdfa',
+                    border: isDark ? '1px solid rgba(13,148,136,0.2)' : '1px solid #99f6e4',
+                    color: isDark ? '#5eead4' : '#0d9488',
+                  }}
                 >
                   <Globe className="w-4 h-4" />
                   View Website
@@ -271,23 +344,37 @@ const AdminPanelContent: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Nav */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex lg:hidden z-20 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-          {tabs.slice(0, 4).map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabSelect(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                activeTab === tab.id ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? tab.color : ''}`} />
-              <span className="text-[10px] font-medium leading-none">{tab.label}</span>
-            </button>
-          ))}
+        <nav
+          className="fixed bottom-0 left-0 right-0 flex lg:hidden z-20"
+          style={{
+            background: bottomNavBg,
+            borderTop: `1px solid ${bottomNavBorder}`,
+            boxShadow: '0 -2px 8px rgba(0,0,0,0.06)',
+          }}
+        >
+          {tabs.slice(0, 4).map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabSelect(tab.id)}
+                className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+                style={{ color: isActive ? bottomNavActive : bottomNavIdle }}
+                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = bottomNavHover; }}
+                onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.color = bottomNavIdle; }}
+              >
+                <tab.icon className={`w-5 h-5 ${isActive ? tab.color : ''}`} />
+                <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+              </button>
+            );
+          })}
           {/* More → opens full drawer */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            style={{ color: bottomNavIdle }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = bottomNavHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = bottomNavIdle)}
           >
             <Menu className="w-5 h-5" />
             <span className="text-[10px] font-medium leading-none">More</span>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { MapPin, Loader, Navigation } from "lucide-react";
+import { useTheme } from "@/components/ThemeContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -17,7 +18,7 @@ const getAuthToken = (): { token: string; type: "Bearer" | "Token" } | null => {
   return null;
 };
 
-interface NearbyUser  { distance_km: number; first_name: string; }
+interface NearbyUser { distance_km: number; first_name: string; }
 interface NearbyData  { count: number; users: NearbyUser[]; }
 
 type State =
@@ -28,8 +29,7 @@ type State =
   | { status: "error"; message: string }
   | { status: "done"; data: NearbyData };
 
-/* Orange-spectrum avatar palette that still reads on dark surfaces */
-const AVATAR_COLORS = [
+const AVATAR_COLORS_DARK = [
   { bg: "rgba(249,115,22,0.18)",  text: "#fb923c" },
   { bg: "rgba(251,191,36,0.18)",  text: "#fbbf24" },
   { bg: "rgba(234,88,12,0.2)",    text: "#f97316" },
@@ -38,6 +38,17 @@ const AVATAR_COLORS = [
   { bg: "rgba(252,211,77,0.18)",  text: "#fcd34d" },
   { bg: "rgba(194,65,12,0.2)",    text: "#ea580c" },
   { bg: "rgba(180,83,9,0.2)",     text: "#d97706" },
+];
+
+const AVATAR_COLORS_LIGHT = [
+  { bg: "rgba(29,78,216,0.12)",   text: "#1d4ed8" },
+  { bg: "rgba(29,78,216,0.12)",   text: "#3b82f6" },
+  { bg: "rgba(59,130,246,0.15)",  text: "#1d4ed8" },
+  { bg: "rgba(29,78,216,0.12)",   text: "#1e40af" },
+  { bg: "rgba(59,130,246,0.12)",  text: "#1e40af" },
+  { bg: "rgba(29,78,216,0.12)",   text: "#1d4ed8" },
+  { bg: "rgba(59,130,246,0.12)",  text: "#1d4ed8" },
+  { bg: "rgba(59,130,246,0.12)",  text: "#3b82f6" },
 ];
 
 const DEFAULT_USERS: NearbyUser[] = [
@@ -57,15 +68,17 @@ const resolveDisplayData = (data: NearbyData): NearbyData =>
 
 /* ─── Letter avatar ─── */
 const LetterAvatar: React.FC<{ name: string; index: number; title: string }> = ({ name, index, title }) => {
-  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  const { isDark } = useTheme();
+  const palette = isDark ? AVATAR_COLORS_DARK : AVATAR_COLORS_LIGHT;
+  const color   = palette[index % palette.length];
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 border-2"
+      className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 border-2 transition-all duration-300"
       style={{
         backgroundColor: color.bg,
         color: color.text,
-        borderColor: "rgba(249,115,22,0.25)",
-        boxShadow: "0 0 0 1px rgba(0,0,0,0.3)",
+        borderColor: isDark ? "rgba(249,115,22,0.25)" : "rgba(29,78,216,0.2)",
+        boxShadow: isDark ? "0 0 0 1px rgba(0,0,0,0.3)" : "0 0 0 1px rgba(255,255,255,0.8)",
       }}
       title={title}
     >
@@ -75,93 +88,130 @@ const LetterAvatar: React.FC<{ name: string; index: number; title: string }> = (
 };
 
 /* ─── Pulse rings ─── */
-const PulseRing: React.FC<{ delay: string; scale: number }> = ({ delay, scale }) => (
-  <div
-    className="absolute rounded-full border"
-    style={{
-      width: "100%",
-      height: "100%",
-      borderColor: "rgba(249,115,22,0.5)",
-      animation: `nearbyPing 2.4s cubic-bezier(0,0,0.2,1) infinite`,
-      animationDelay: delay,
-      transform: `scale(${scale})`,
-    }}
-  />
-);
+const PulseRing: React.FC<{ delay: string; scale: number }> = ({ delay, scale }) => {
+  const { isDark } = useTheme();
+  return (
+    <div
+      className="absolute rounded-full border"
+      style={{
+        width: "100%",
+        height: "100%",
+        borderColor: isDark ? "rgba(249,115,22,0.5)" : "rgba(29,78,216,0.45)",
+        animation: `nearbyPing 2.4s cubic-bezier(0,0,0.2,1) infinite`,
+        animationDelay: delay,
+        transform: `scale(${scale})`,
+      }}
+    />
+  );
+};
 
 /* ─── Distance bar ─── */
 const DistanceBar: React.FC<{ users: NearbyUser[] }> = ({ users }) => {
+  const { isDark } = useTheme();
   const closest  = Math.min(...users.map((u) => u.distance_km));
   const farthest = Math.max(...users.map((u) => u.distance_km));
   return (
     <div className="flex items-center gap-2">
-      <Navigation className="w-3 h-3 shrink-0" style={{ color: "#f97316" }} />
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(249,115,22,0.12)" }}>
+      <Navigation className="w-3 h-3 shrink-0" style={{ color: isDark ? "#f97316" : "#1d4ed8" }} />
+      <div
+        className="flex-1 h-1.5 rounded-full overflow-hidden"
+        style={{ background: isDark ? "rgba(249,115,22,0.12)" : "rgba(29,78,216,0.1)" }}
+      >
         <div
           className="h-full rounded-full"
-          style={{ background: "linear-gradient(to right, #fb923c, #f97316)", width: "100%" }}
+          style={{
+            background: isDark
+              ? "linear-gradient(to right, #fb923c, #f97316)"
+              : "linear-gradient(to right, #60a5fa, #1d4ed8)",
+            width: "100%",
+          }}
         />
       </div>
-      {/* CONTRAST FIX: was text-gray-400 on dark bg */}
-      <span className="text-[10px] whitespace-nowrap font-medium" style={{ color: "#8a6540" }}>
+      <span className="text-[10px] whitespace-nowrap font-medium transition-colors duration-300" style={{ color: isDark ? "#8a6540" : "#64748b" }}>
         {closest}km – {farthest}km
       </span>
     </div>
   );
 };
 
-/* ─── Shared dark card shell ─── */
-const CardShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div
-    className="relative p-5 rounded-2xl flex flex-col justify-between h-full min-h-[180px] overflow-hidden border"
-    style={{
-      background: "linear-gradient(145deg, #1a1a1a 0%, #130e06 100%)",
-      borderColor: "rgba(249,115,22,0.18)",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03)",
-    }}
-  >
-    {/* Top accent line */}
+/* ─── Shared card shell ─── */
+const CardShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isDark } = useTheme();
+  return (
     <div
-      className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-      style={{ background: "linear-gradient(90deg, transparent 10%, rgba(249,115,22,0.4) 50%, transparent 90%)" }}
-    />
-    {/* Corner glow */}
-    <div
-      className="absolute top-0 right-0 w-40 h-40 pointer-events-none"
-      style={{ background: "radial-gradient(circle at top right, rgba(249,115,22,0.07) 0%, transparent 65%)" }}
-    />
-    <div className="relative z-10 flex flex-col h-full gap-4">{children}</div>
-  </div>
-);
+      className="relative p-5 rounded-2xl flex flex-col justify-between h-full min-h-[180px] overflow-hidden border transition-all duration-300"
+      style={isDark ? {
+        background: "linear-gradient(145deg, #1a1a1a 0%, #130e06 100%)",
+        borderColor: "rgba(249,115,22,0.18)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03)",
+      } : {
+        background: "linear-gradient(145deg, #ffffff 0%, #f8f9fc 100%)",
+        borderColor: "rgba(29,78,216,0.15)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+      }}
+    >
+      {/* Top accent line */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+        style={{
+          background: isDark
+            ? "linear-gradient(90deg, transparent 10%, rgba(249,115,22,0.4) 50%, transparent 90%)"
+            : "linear-gradient(90deg, transparent 10%, rgba(29,78,216,0.35) 50%, transparent 90%)",
+        }}
+      />
+      {/* Corner glow */}
+      <div
+        className="absolute top-0 right-0 w-40 h-40 pointer-events-none"
+        style={{
+          background: isDark
+            ? "radial-gradient(circle at top right, rgba(249,115,22,0.07) 0%, transparent 65%)"
+            : "radial-gradient(circle at top right, rgba(29,78,216,0.06) 0%, transparent 65%)",
+        }}
+      />
+      <div className="relative z-10 flex flex-col h-full gap-4">{children}</div>
+    </div>
+  );
+};
 
 /* ─── Card header ─── */
-const CardHeader: React.FC<{ icon?: React.ReactNode; badge?: React.ReactNode }> = ({ icon, badge }) => (
-  <div className="flex items-start justify-between">
-    <div className="flex items-center gap-3">
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{
-          background: "rgba(249,115,22,0.12)",
-          border: "1px solid rgba(249,115,22,0.28)",
-          boxShadow: "0 0 12px rgba(249,115,22,0.12)",
-        }}
-      >
-        {icon ?? <MapPin className="w-5 h-5" style={{ color: "#f97316" }} />}
+const CardHeader: React.FC<{ icon?: React.ReactNode; badge?: React.ReactNode }> = ({ icon, badge }) => {
+  const { isDark } = useTheme();
+  return (
+    <div className="flex items-start justify-between">
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300"
+          style={isDark ? {
+            background: "rgba(249,115,22,0.12)",
+            border: "1px solid rgba(249,115,22,0.28)",
+            boxShadow: "0 0 12px rgba(249,115,22,0.12)",
+          } : {
+            background: "rgba(29,78,216,0.08)",
+            border: "1px solid rgba(29,78,216,0.22)",
+            boxShadow: "0 0 12px rgba(29,78,216,0.08)",
+          }}
+        >
+          {icon ?? <MapPin className="w-5 h-5" style={{ color: isDark ? "#f97316" : "#1d4ed8" }} />}
+        </div>
+        <div>
+          <h4 className="text-sm font-bold transition-colors duration-300" style={{ color: isDark ? "#f0e8de" : "#1e293b" }}>
+            People Nearby
+          </h4>
+          <p className="text-xs transition-colors duration-300" style={{ color: isDark ? "#8a6540" : "#64748b" }}>
+            Find matches close to you
+          </p>
+        </div>
       </div>
-      <div>
-        {/* CONTRAST FIX: was text-gray-900 on dark = invisible */}
-        <h4 className="text-sm font-bold" style={{ color: "#f0e8de" }}>People Nearby</h4>
-        <p className="text-xs" style={{ color: "#8a6540" }}>Find matches close to you</p>
-      </div>
+      {badge}
     </div>
-    {badge}
-  </div>
-);
+  );
+};
 
 /* ════════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════════ */
 const NearbyBanner: React.FC = () => {
+  const { isDark } = useTheme();
   const [state, setState] = useState<State>({ status: "idle" });
 
   useEffect(() => {
@@ -208,13 +258,16 @@ const NearbyBanner: React.FC = () => {
     );
   }, []);
 
+  const accentColor  = isDark ? "#f97316" : "#1d4ed8";
+  const subtleColor  = isDark ? "#8a6540" : "#64748b";
+
   /* ── Loading ── */
   if (["idle", "requesting", "loading"].includes(state.status)) {
     return (
       <CardShell>
         <CardHeader />
-        <div className="flex items-center gap-2 text-xs" style={{ color: "#8a6540" }}>
-          <Loader className="w-4 h-4 animate-spin" style={{ color: "#f97316" }} />
+        <div className="flex items-center gap-2 text-xs transition-colors duration-300" style={{ color: subtleColor }}>
+          <Loader className="w-4 h-4 animate-spin" style={{ color: accentColor }} />
           {state.status === "requesting" ? "Requesting location…" : "Finding people nearby…"}
         </div>
       </CardShell>
@@ -223,17 +276,20 @@ const NearbyBanner: React.FC = () => {
 
   /* ── Denied ── */
   if (state.status === "denied") {
+    const warnColor = isDark ? "#fbbf24" : "#f59e0b";
     return (
       <CardShell>
-        <CardHeader
-          icon={<MapPin className="w-5 h-5" style={{ color: "#fbbf24" }} />}
-        />
+        <CardHeader icon={<MapPin className="w-5 h-5" style={{ color: warnColor }} />} />
         <p
-          className="text-xs rounded-xl px-3 py-2 leading-relaxed border"
-          style={{
+          className="text-xs rounded-xl px-3 py-2 leading-relaxed border transition-all duration-300"
+          style={isDark ? {
             color: "#fbbf24",
             background: "rgba(251,191,36,0.08)",
             borderColor: "rgba(251,191,36,0.25)",
+          } : {
+            color: "#92400e",
+            background: "rgba(245,158,11,0.08)",
+            borderColor: "rgba(245,158,11,0.25)",
           }}
         >
           Location access was denied. Enable it in your browser settings to see people nearby.
@@ -247,7 +303,9 @@ const NearbyBanner: React.FC = () => {
     return (
       <CardShell>
         <CardHeader />
-        <p className="text-xs" style={{ color: "#8a6540" }}>Unable to load nearby users.</p>
+        <p className="text-xs transition-colors duration-300" style={{ color: subtleColor }}>
+          Unable to load nearby users.
+        </p>
       </CardShell>
     );
   }
@@ -272,11 +330,15 @@ const NearbyBanner: React.FC = () => {
         <CardHeader
           badge={
             <span
-              className="text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
-              style={{
+              className="text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap transition-all duration-300"
+              style={isDark ? {
                 background: "rgba(249,115,22,0.12)",
                 border: "1px solid rgba(249,115,22,0.28)",
                 color: "#fb923c",
+              } : {
+                background: "rgba(29,78,216,0.08)",
+                border: "1px solid rgba(29,78,216,0.22)",
+                color: "#1d4ed8",
               }}
             >
               {data.count} nearby
@@ -292,10 +354,13 @@ const NearbyBanner: React.FC = () => {
             <PulseRing delay="0.8s" scale={1} />
             <PulseRing delay="1.6s" scale={1} />
             <div
-              className="w-3 h-3 rounded-full z-10"
-              style={{
+              className="w-3 h-3 rounded-full z-10 transition-all duration-300"
+              style={isDark ? {
                 background: "radial-gradient(circle, #fbbf24, #f97316)",
                 boxShadow: "0 0 8px 2px rgba(249,115,22,0.6)",
+              } : {
+                background: "radial-gradient(circle, #60a5fa, #1d4ed8)",
+                boxShadow: "0 0 8px 2px rgba(29,78,216,0.5)",
               }}
             />
           </div>
@@ -304,14 +369,26 @@ const NearbyBanner: React.FC = () => {
             <DistanceBar users={data.users} />
             <div className="flex gap-2">
               <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(249,115,22,0.1)", color: "#fb923c" }}
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300"
+                style={isDark ? {
+                  background: "rgba(249,115,22,0.1)",
+                  color: "#fb923c",
+                } : {
+                  background: "rgba(29,78,216,0.08)",
+                  color: "#1d4ed8",
+                }}
               >
-                🟠 Active now
+                {isDark ? "🟠" : "🔵"} Active now
               </span>
               <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(255,255,255,0.04)", color: "#8a6540" }}
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300"
+                style={isDark ? {
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#8a6540",
+                } : {
+                  background: "rgba(29,78,216,0.04)",
+                  color: "#64748b",
+                }}
               >
                 within 50km
               </span>
@@ -331,11 +408,15 @@ const NearbyBanner: React.FC = () => {
           ))}
           {extra > 0 && (
             <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold border-2"
-              style={{
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all duration-300"
+              style={isDark ? {
                 background: "rgba(249,115,22,0.1)",
                 borderColor: "rgba(249,115,22,0.25)",
                 color: "#f97316",
+              } : {
+                background: "rgba(29,78,216,0.08)",
+                borderColor: "rgba(29,78,216,0.2)",
+                color: "#1d4ed8",
               }}
             >
               +{extra}

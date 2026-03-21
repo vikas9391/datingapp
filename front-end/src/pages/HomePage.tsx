@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Heart, Send, PenLine, Flame } from "lucide-react";
+import { Heart, Send, Flame } from "lucide-react";
 
 /* ---------------- COMPONENTS ---------------- */
 import TopBar from "@/components/layout/TopBar";
@@ -17,6 +17,7 @@ import Footer from "@/components/layout/Footer";
 import SwipePaywallModal from "@/components/home/Swipepaywallmodal";
 import LockedDeckOverlay from "@/components/home/Lockeddeckoverlay";
 import SwipeInfoModal from "@/components/home/SwipeInfoModal";
+import { useTheme } from "@/components/ThemeContext";
 
 /* ---------------- SERVICES & TYPES ---------------- */
 import { profileService } from "@/services/profileService";
@@ -119,24 +120,32 @@ const incrementSwipeCount = async (): Promise<{ swipes_used: number; limit_reach
 };
 
 /* ─────────────────────────────────────────────
-   FLOATING EMBER PARTICLE
+   FLOATING PARTICLE
 ───────────────────────────────────────────── */
 const EmberParticle = ({
   style,
   size = "sm",
+  isDark,
 }: {
   style: React.CSSProperties;
   size?: "sm" | "md" | "lg";
+  isDark: boolean;
 }) => {
   const dims = { sm: 6, md: 10, lg: 14 }[size];
+  const grad = isDark
+    ? "radial-gradient(circle, #fbbf24 0%, #f97316 60%, transparent 100%)"
+    : "radial-gradient(circle, #60a5fa 0%, #1d4ed8 60%, transparent 100%)";
+  const glow = isDark
+    ? "0 0 6px 2px rgba(251,146,60,0.5)"
+    : "0 0 6px 2px rgba(29,78,216,0.4)";
   return (
     <div
       className="absolute rounded-full pointer-events-none"
       style={{
         width: dims,
         height: dims,
-        background: "radial-gradient(circle, #fbbf24 0%, #f97316 60%, transparent 100%)",
-        boxShadow: "0 0 6px 2px rgba(251,146,60,0.5)",
+        background: grad,
+        boxShadow: glow,
         opacity: 0,
         ...style,
         animation: `emberFloat ${(style as any).animationDuration ?? "4s"} ease-out infinite`,
@@ -153,10 +162,12 @@ const AnimatedStat = ({
   value,
   label,
   delay = 0,
+  isDark,
 }: {
   value: string;
   label: string;
   delay?: number;
+  isDark: boolean;
 }) => {
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -170,41 +181,60 @@ const AnimatedStat = ({
     return () => observer.disconnect();
   }, []);
 
+  const cardStyle = isDark ? {
+    background: "linear-gradient(145deg, #1e1810 0%, #130e06 100%)",
+    border: "1px solid rgba(249,115,22,0.22)",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03)",
+  } : {
+    background: "linear-gradient(145deg, #ffffff 0%, #f8f9fc 100%)",
+    border: "1px solid rgba(29,78,216,0.15)",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+  };
+
+  const hoverGlow = isDark
+    ? "radial-gradient(ellipse at center, rgba(249,115,22,0.1) 0%, transparent 70%)"
+    : "radial-gradient(ellipse at center, rgba(29,78,216,0.07) 0%, transparent 70%)";
+
+  const topAccent = isDark
+    ? "linear-gradient(90deg, transparent, rgba(249,115,22,0.5), transparent)"
+    : "linear-gradient(90deg, transparent, rgba(29,78,216,0.3), transparent)";
+
+  const valueGrad = isDark
+    ? "linear-gradient(135deg, #fb923c 0%, #fbbf24 50%, #f97316 100%)"
+    : "linear-gradient(135deg, #1d4ed8 0%, #60a5fa 50%, #3b82f6 100%)";
+
+  const labelColor = isDark ? "#c2763a" : "#64748b";
+
   return (
     <div
       ref={ref}
-      className="group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-8 text-center cursor-default"
+      className="group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-8 text-center cursor-default transition-all duration-300"
       style={{
-        background: "linear-gradient(145deg, #1e1810 0%, #130e06 100%)",
-        border: "1px solid rgba(249,115,22,0.22)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03)",
+        ...cardStyle,
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0) scale(1)" : "translateY(24px) scale(0.94)",
         transition: `opacity 0.6s cubic-bezier(.22,1,.36,1) ${delay}s, transform 0.6s cubic-bezier(.22,1,.36,1) ${delay}s`,
       }}
     >
-      {/* Hover radial glow */}
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl md:rounded-3xl"
-        style={{ background: "radial-gradient(ellipse at center, rgba(249,115,22,0.1) 0%, transparent 70%)" }}
+        style={{ background: hoverGlow }}
       />
-      {/* Top accent line */}
       <div
         className="absolute top-0 left-0 right-0 h-px"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(249,115,22,0.5), transparent)" }}
+        style={{ background: topAccent }}
       />
       <div
         className="text-lg sm:text-2xl md:text-4xl font-black mb-1 md:mb-2 bg-clip-text text-transparent"
         style={{
-          backgroundImage: "linear-gradient(135deg, #fb923c 0%, #fbbf24 50%, #f97316 100%)",
+          backgroundImage: valueGrad,
           transform: visible ? "scale(1)" : "scale(0.7)",
           transition: `transform 0.5s cubic-bezier(.34,1.56,.64,1) ${delay + 0.15}s`,
         }}
       >
         {value}
       </div>
-      {/* HIGH-CONTRAST label — was orange-200/60 which was nearly invisible */}
-      <div className="text-[10px] sm:text-xs md:text-sm font-semibold tracking-wide" style={{ color: "#c2763a" }}>
+      <div className="text-[10px] sm:text-xs md:text-sm font-semibold tracking-wide transition-colors duration-300" style={{ color: labelColor }}>
         {label}
       </div>
     </div>
@@ -237,6 +267,7 @@ const useTypewriter = (text: string, speed = 38, startDelay = 900) => {
 /* ================= HOME PAGE ================= */
 const HomePage = ({ onLogout }: HomePageProps) => {
   const navigate  = useNavigate();
+  const { isDark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* -------- STATE -------- */
@@ -273,6 +304,16 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     36,
     950
   );
+
+  /* ─── Derived theme tokens ─── */
+  const accentColor   = isDark ? "#f97316" : "#1d4ed8";
+  const accentEmber   = isDark ? "#fb923c" : "#60a5fa";
+  const accentAmber   = isDark ? "#fbbf24" : "#3b82f6";
+  const txPrimary     = isDark ? "#f0e8de" : "#1e293b";
+  const txBody        = isDark ? "#c4a882" : "#475569";
+  const txMuted       = isDark ? "#8a6540" : "#64748b";
+  const pageBg        = isDark ? "#0d0d0d" : "#f8faff";
+  const shimmerClass  = isDark ? "shimmer-warm" : "shimmer-cool";
 
   const triggerPaywall = () => {
     if (paywallShownRef.current) return;
@@ -530,32 +571,150 @@ const HomePage = ({ onLogout }: HomePageProps) => {
     }
   };
 
+  /* ─── Per-section theme styles ─── */
+  const heroNameGrad = isDark
+    ? "linear-gradient(270deg, #fbbf24 0%, #f97316 25%, #fb923c 50%, #fbbf24 75%, #f97316 100%)"
+    : "linear-gradient(270deg, #3b82f6 0%, #1d4ed8 25%, #60a5fa 50%, #3b82f6 75%, #1d4ed8 100%)";
+
+  const ambientBg1 = isDark
+    ? "radial-gradient(circle, rgba(234,88,12,0.13) 0%, transparent 70%)"
+    : "radial-gradient(circle, rgba(29,78,216,0.08) 0%, transparent 70%)";
+  const ambientBg2 = isDark
+    ? "radial-gradient(circle, rgba(251,146,60,0.09) 0%, transparent 70%)"
+    : "radial-gradient(circle, rgba(29,78,216,0.07) 0%, transparent 70%)";
+  const ambientBg3 = isDark
+    ? "radial-gradient(ellipse, rgba(249,115,22,0.08) 0%, transparent 70%)"
+    : "radial-gradient(ellipse, rgba(29,78,216,0.05) 0%, transparent 70%)";
+  const dotGridColor = isDark
+    ? "radial-gradient(circle, rgba(249,115,22,0.12) 1px, transparent 1px)"
+    : "radial-gradient(circle, rgba(29,78,216,0.08) 1px, transparent 1px)";
+
+  const deckHaloColor = isDark
+    ? "radial-gradient(ellipse, rgba(234,88,12,0.14) 0%, transparent 62%)"
+    : "radial-gradient(ellipse, rgba(29,78,216,0.08) 0%, transparent 62%)";
+
+  const counterBadge = isDark ? {
+    background: "linear-gradient(135deg, #1e1208, #291606)",
+    border: "1px solid rgba(249,115,22,0.42)",
+    boxShadow: "0 4px 18px rgba(0,0,0,0.55), 0 0 0 1px rgba(249,115,22,0.08)",
+  } : {
+    background: "linear-gradient(135deg, #ffffff, #f8f9fc)",
+    border: "1px solid rgba(29,78,216,0.25)",
+    boxShadow: "0 4px 18px rgba(0,0,0,0.06), 0 0 0 1px rgba(29,78,216,0.06)",
+  };
+
+  const dotFilled  = isDark ? "#f97316" : "#1d4ed8";
+  const dotUsed    = isDark ? "rgba(100,50,15,0.6)" : "rgba(203,213,225,0.8)";
+  const dotCurrent = isDark ? "#fb923c" : "#60a5fa";
+  const dotGlowColor = isDark ? "rgba(249,115,22,0.6)" : "rgba(29,78,216,0.5)";
+
+  const loadingCard = isDark ? {
+    background: "linear-gradient(145deg, #141414, #110c05)",
+    border: "1px solid rgba(249,115,22,0.16)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+  } : {
+    background: "linear-gradient(145deg, #ffffff, #f8f9fc)",
+    border: "1px solid rgba(29,78,216,0.12)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.06)",
+  };
+
+  const errorCard = isDark ? {
+    background: "#141414",
+    color: "#f87171",
+    border: "1px solid rgba(239,68,68,0.28)",
+  } : {
+    background: "#fff1f2",
+    color: "#ef4444",
+    border: "1px solid rgba(239,68,68,0.2)",
+  };
+
+  const emptyCard = isDark ? {
+    background: "linear-gradient(145deg, #141414, #110c05)",
+    border: "1px solid rgba(249,115,22,0.16)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+  } : {
+    background: "linear-gradient(145deg, #ffffff, #f8f9fc)",
+    border: "1px solid rgba(29,78,216,0.12)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.06)",
+  };
+
+  const storyCard = isDark ? {
+    background: "linear-gradient(145deg, #181108 0%, #100c04 100%)",
+    border: "1px solid rgba(249,115,22,0.22)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.025)",
+  } : {
+    background: "linear-gradient(145deg, #ffffff 0%, #f8f9fc 100%)",
+    border: "1px solid rgba(29,78,216,0.15)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+  };
+
+  const storyIconWrap = isDark ? {
+    background: "rgba(249,115,22,0.14)",
+    border: "1px solid rgba(249,115,22,0.35)",
+    boxShadow: "0 0 14px rgba(249,115,22,0.2)",
+  } : {
+    background: "rgba(29,78,216,0.08)",
+    border: "1px solid rgba(29,78,216,0.25)",
+    boxShadow: "0 0 14px rgba(29,78,216,0.1)",
+  };
+
+  const submittedBox = isDark ? {
+    background: "rgba(194,119,58,0.1)",
+    border: "1px solid rgba(249,115,22,0.32)",
+  } : {
+    background: "rgba(29,78,216,0.04)",
+    border: "1px solid rgba(29,78,216,0.2)",
+  };
+
+  const submittedText = isDark ? "#f5c07a" : "#1d4ed8";
+
+  const textareaWrap = isDark ? {
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(249,115,22,0.18)",
+  } : {
+    background: "rgba(29,78,216,0.02)",
+    border: "1px solid rgba(29,78,216,0.12)",
+  };
+
+  const textareaFocusBorder = isDark ? "rgba(249,115,22,0.55)" : "rgba(29,78,216,0.45)";
+  const textareaFocusShadow = isDark ? "0 0 28px rgba(249,115,22,0.12)" : "0 0 28px rgba(29,78,216,0.08)";
+  const textareaDivider     = isDark ? "1px solid rgba(249,115,22,0.1)" : "1px solid rgba(29,78,216,0.08)";
+
+  const submitBtn = isDark ? {
+    background: "linear-gradient(135deg, #c2410c 0%, #ea580c 40%, #f97316 100%)",
+    boxShadow: "0 4px 18px rgba(194,65,12,0.45)",
+  } : {
+    background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)",
+    boxShadow: "0 4px 18px rgba(29,78,216,0.3)",
+  };
+
+  const submitBtnHoverShadow = isDark
+    ? "0 6px 26px rgba(249,115,22,0.55)"
+    : "0 6px 26px rgba(29,78,216,0.45)";
+
+  const storyTopAccent = isDark
+    ? "linear-gradient(90deg, transparent 8%, rgba(249,115,22,0.45) 50%, transparent 92%)"
+    : "linear-gradient(90deg, transparent 8%, rgba(29,78,216,0.3) 50%, transparent 92%)";
+
+  const storyCornerGlow = isDark
+    ? "radial-gradient(circle, rgba(249,115,22,0.07) 0%, transparent 70%)"
+    : "radial-gradient(circle, rgba(29,78,216,0.05) 0%, transparent 70%)";
+
+  const orbitGrad = isDark
+    ? "radial-gradient(circle, #fbbf24, #f97316)"
+    : "radial-gradient(circle, #60a5fa, #1d4ed8)";
+  const orbitGlow = isDark
+    ? "0 0 10px 3px rgba(251,191,36,0.55)"
+    : "0 0 10px 3px rgba(29,78,216,0.4)";
+
+  const flameOpacity = isDark ? 0.1 : 0.06;
+  const burstColors  = isDark ? ["#fbbf24", "#f97316"] : ["#60a5fa", "#1d4ed8"];
+
   /* ================= RENDER ================= */
   return (
     <>
-      {/* ─────────────────────────────────────────
-          GLOBAL ANIMATION KEYFRAMES + CSS TOKENS
-      ───────────────────────────────────────── */}
       <style>{`
-        /* ── Design tokens ──────────────────────────────────── */
-        :root {
-          --flame:          #f97316;
-          --ember:          #fb923c;
-          --amber:          #fbbf24;
-          --coal:           #0d0d0d;
-          --surface-1:      #141414;
-          --surface-2:      #1c1c1c;
-          --surface-3:      #242424;
-
-          /* TEXT — all contrast-checked ≥4.5:1 on dark surfaces */
-          --tx-primary:     #f0e8de;   /* headings, key text        */
-          --tx-secondary:   #d4935a;   /* subheadings, accented     */
-          --tx-body:        #c4a882;   /* body copy, descriptions   */
-          --tx-muted:       #8a6540;   /* captions, hints           */
-          --tx-disabled:    #4a3520;   /* placeholders              */
-        }
-
-        /* ── Ember particles ── */
+        /* ── Ember / particle float ── */
         @keyframes emberFloat {
           0%   { transform: translateY(0)    translateX(0)   scale(1);   opacity: 0; }
           12%  { opacity: 0.9; }
@@ -563,27 +722,21 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           100% { transform: translateY(-150px) translateX(10px) scale(0.25); opacity: 0; }
         }
 
-        /* ── Hero entrance ── */
-        @keyframes heroLine {
-          from { opacity: 0; transform: translateY(36px); filter: blur(3px); }
-          to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
-        }
-
-        /* ── Animated gradient on username ── */
+        /* ── Animated gradient pan ── */
         @keyframes gradientPan {
           0%   { background-position: 0%   center; }
           50%  { background-position: 100% center; }
           100% { background-position: 0%   center; }
         }
 
-        /* ── Flame icon heartbeat ── */
+        /* ── Flame heartbeat ── */
         @keyframes flamePulse {
           0%,100% {
-            filter: drop-shadow(0 0 5px #f97316) drop-shadow(0 0 14px rgba(234,88,12,.5));
+            filter: drop-shadow(0 0 5px ${accentColor}) drop-shadow(0 0 14px ${accentColor}80);
             transform: scale(1) rotate(-3deg);
           }
           50% {
-            filter: drop-shadow(0 0 12px #fb923c) drop-shadow(0 0 30px rgba(249,115,22,.5));
+            filter: drop-shadow(0 0 12px ${accentEmber}) drop-shadow(0 0 30px ${accentColor}80);
             transform: scale(1.1) rotate(3deg);
           }
         }
@@ -602,58 +755,63 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           100% { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
         }
 
-        /* ── Active swipe dot ── */
+        /* ── Active swipe dot glow ── */
         @keyframes dotGlow {
-          0%,100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(251,146,60,.9); }
-          50%     { transform: scale(1.3);  box-shadow: 0 0 0 5px rgba(251,146,60,0);  }
+          0%,100% { transform: scale(1);    box-shadow: 0 0 0 0   ${dotGlowColor}; }
+          50%     { transform: scale(1.3);  box-shadow: 0 0 0 5px transparent;  }
         }
 
-        /* ── Card border glow ── */
+        /* ── Card border breath ── */
         @keyframes borderBreath {
-          0%,100% { box-shadow: 0 0 0px 0 rgba(249,115,22,0),   0 24px 56px rgba(0,0,0,.5); }
-          50%     { box-shadow: 0 0 18px 2px rgba(249,115,22,.18), 0 24px 56px rgba(0,0,0,.5); }
+          0%,100% { box-shadow: 0 0 0px 0 rgba(0,0,0,0), 0 24px 56px rgba(0,0,0,.${isDark ? "5" : "06"}); }
+          50%     { box-shadow: 0 0 18px 2px ${accentColor}30, 0 24px 56px rgba(0,0,0,.${isDark ? "5" : "06"}); }
         }
 
-        /* ── Shimmer loading ── */
+        /* ── Shimmer ── */
         @keyframes shimmer {
           0%   { background-position: -700px 0; }
           100% { background-position:  700px 0; }
         }
 
-        /* ── Like burst particles ── */
+        /* ── Like burst ── */
         @keyframes burstOut {
           0%   { transform: rotate(var(--angle)) translateX(0)   scale(1.2); opacity: 1; }
           100% { transform: rotate(var(--angle)) translateX(70px) scale(0);   opacity: 0; }
         }
 
-        /* ── Orbiting spark ── */
+        /* ── Orbit ── */
         @keyframes orbit {
           0%   { transform: rotate(0deg)   translateX(110px) rotate(0deg); }
           100% { transform: rotate(360deg) translateX(110px) rotate(-360deg); }
         }
 
-        /* ── Section scroll-in ── */
+        /* ── Scroll reveal ── */
         @keyframes scrollReveal {
           from { opacity: 0; transform: translateY(28px); }
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Cursor blink for typewriter ── */
+        /* ── Cursor blink ── */
         @keyframes blink {
           0%,100% { opacity: 1; }
           50%     { opacity: 0; }
         }
 
-        /* ─────────── Utility classes ─────────── */
-        .animate-flame     { animation: flamePulse 2.6s ease-in-out infinite; }
-        .animate-deck      { animation: deckIn 0.85s cubic-bezier(.22,1,.36,1) 0.4s both; }
-        .animate-badge     { animation: badgeDrop 0.55s cubic-bezier(.34,1.56,.64,1) both; }
-        .dot-glow          { animation: dotGlow 1.6s ease-in-out infinite; }
-        .border-breath     { animation: borderBreath 3.5s ease-in-out infinite; }
-        .blink             { animation: blink 0.9s step-start infinite; }
+        /* ─── Utility classes ─── */
+        .animate-flame  { animation: flamePulse 2.6s ease-in-out infinite; }
+        .animate-deck   { animation: deckIn 0.85s cubic-bezier(.22,1,.36,1) 0.4s both; }
+        .animate-badge  { animation: badgeDrop 0.55s cubic-bezier(.34,1.56,.64,1) both; }
+        .dot-glow       { animation: dotGlow 1.6s ease-in-out infinite; }
+        .border-breath  { animation: borderBreath 3.5s ease-in-out infinite; }
+        .blink          { animation: blink 0.9s step-start infinite; }
 
         .shimmer-warm {
           background: linear-gradient(90deg, #1a1208 25%, #321a08 50%, #1a1208 75%);
+          background-size: 700px 100%;
+          animation: shimmer 1.7s infinite linear;
+        }
+        .shimmer-cool {
+          background: linear-gradient(90deg, #f1f5ff 25%, #dbeafe 50%, #f1f5ff 75%);
           background-size: 700px 100%;
           animation: shimmer 1.7s infinite linear;
         }
@@ -664,21 +822,24 @@ const HomePage = ({ onLogout }: HomePageProps) => {
           border-radius: 50%;
           animation: burstOut 0.65s cubic-bezier(.22,1,.36,1) forwards;
         }
+
+        /* Textarea placeholder color */
+        textarea::placeholder {
+          color: ${isDark ? "#4a3520" : "#94a3b8"};
+        }
       `}</style>
 
-      <div className="min-h-screen pt-16 md:pt-20 overflow-x-hidden relative" style={{ background: "var(--coal)" }}>
-
+      <div
+        className="min-h-screen pt-16 md:pt-20 overflow-x-hidden relative transition-colors duration-300"
+        style={{ background: pageBg }}
+      >
         {/* ── LAYERED AMBIENT BACKGROUND ── */}
         <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(234,88,12,0.13) 0%, transparent 70%)" }} />
-          <div className="absolute top-[38%] -right-28 w-80 h-80 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(251,146,60,0.09) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[720px] h-56"
-            style={{ background: "radial-gradient(ellipse, rgba(249,115,22,0.08) 0%, transparent 70%)" }} />
-          {/* Subtle dot-grid texture */}
+          <div className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full" style={{ background: ambientBg1 }} />
+          <div className="absolute top-[38%] -right-28 w-80 h-80 rounded-full"        style={{ background: ambientBg2 }} />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[720px] h-56" style={{ background: ambientBg3 }} />
           <div className="absolute inset-0" style={{
-            backgroundImage: "radial-gradient(circle, rgba(249,115,22,0.12) 1px, transparent 1px)",
+            backgroundImage: dotGridColor,
             backgroundSize: "48px 48px",
             opacity: 0.35,
           }} />
@@ -694,40 +855,35 @@ const HomePage = ({ onLogout }: HomePageProps) => {
 
         <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12">
 
-          {/* ══════════════════════════════════════════════
-              1. HERO
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 1. HERO ══════ */}
           <div className="relative text-center mb-10 md:mb-16 px-2">
-
-            {/* Ember particles */}
             {heroVisible && (
               <>
-                <EmberParticle size="sm" style={{ left:"10%", bottom:"0%",  animationDelay:"0s",   animationDuration:"3.8s" } as any} />
-                <EmberParticle size="md" style={{ left:"22%", bottom:"4%",  animationDelay:"1.2s", animationDuration:"4.5s" } as any} />
-                <EmberParticle size="sm" style={{ left:"38%", bottom:"1%",  animationDelay:"0.5s", animationDuration:"3.3s" } as any} />
-                <EmberParticle size="lg" style={{ left:"54%", bottom:"7%",  animationDelay:"1.8s", animationDuration:"5.0s" } as any} />
-                <EmberParticle size="sm" style={{ left:"68%", bottom:"2%",  animationDelay:"0.3s", animationDuration:"4.1s" } as any} />
-                <EmberParticle size="md" style={{ left:"82%", bottom:"0%",  animationDelay:"2.1s", animationDuration:"3.6s" } as any} />
-                <EmberParticle size="sm" style={{ left:"30%", bottom:"11%", animationDelay:"2.5s", animationDuration:"4.8s" } as any} />
-                <EmberParticle size="sm" style={{ left:"62%", bottom:"9%",  animationDelay:"0.9s", animationDuration:"3.5s" } as any} />
+                <EmberParticle isDark={isDark} size="sm" style={{ left:"10%", bottom:"0%",  animationDelay:"0s",   animationDuration:"3.8s" } as any} />
+                <EmberParticle isDark={isDark} size="md" style={{ left:"22%", bottom:"4%",  animationDelay:"1.2s", animationDuration:"4.5s" } as any} />
+                <EmberParticle isDark={isDark} size="sm" style={{ left:"38%", bottom:"1%",  animationDelay:"0.5s", animationDuration:"3.3s" } as any} />
+                <EmberParticle isDark={isDark} size="lg" style={{ left:"54%", bottom:"7%",  animationDelay:"1.8s", animationDuration:"5.0s" } as any} />
+                <EmberParticle isDark={isDark} size="sm" style={{ left:"68%", bottom:"2%",  animationDelay:"0.3s", animationDuration:"4.1s" } as any} />
+                <EmberParticle isDark={isDark} size="md" style={{ left:"82%", bottom:"0%",  animationDelay:"2.1s", animationDuration:"3.6s" } as any} />
+                <EmberParticle isDark={isDark} size="sm" style={{ left:"30%", bottom:"11%", animationDelay:"2.5s", animationDuration:"4.8s" } as any} />
+                <EmberParticle isDark={isDark} size="sm" style={{ left:"62%", bottom:"9%",  animationDelay:"0.9s", animationDuration:"3.5s" } as any} />
               </>
             )}
 
             {/* Orbiting spark */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true">
               <div className="w-2.5 h-2.5 rounded-full" style={{
-                background: "radial-gradient(circle, #fbbf24, #f97316)",
-                boxShadow: "0 0 10px 3px rgba(251,191,36,0.55)",
+                background: orbitGrad,
+                boxShadow: orbitGlow,
                 animation: "orbit 14s linear infinite",
               }} />
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-4 leading-tight">
-              {/* Line 1 */}
               <span
-                className="block"
+                className="block transition-colors duration-300"
                 style={{
-                  color: "var(--tx-primary)",
+                  color: txPrimary,
                   opacity: heroVisible ? 1 : 0,
                   transform: heroVisible ? "translateY(0)" : "translateY(36px)",
                   transition: "opacity 0.75s cubic-bezier(.22,1,.36,1) 0.1s, transform 0.75s cubic-bezier(.22,1,.36,1) 0.1s",
@@ -736,7 +892,6 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                 Find Your Vibe,
               </span>
 
-              {/* Line 2 — username + flame */}
               <span
                 className="inline-flex items-center gap-3 flex-wrap justify-center"
                 style={{
@@ -748,7 +903,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                 <span
                   className="font-black bg-clip-text text-transparent"
                   style={{
-                    backgroundImage: "linear-gradient(270deg, #fbbf24 0%, #f97316 25%, #fb923c 50%, #fbbf24 75%, #f97316 100%)",
+                    backgroundImage: heroNameGrad,
                     backgroundSize: "300% 100%",
                     animation: heroVisible ? "gradientPan 5s ease infinite" : "none",
                   }}
@@ -758,16 +913,15 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                 <Flame
                   className="w-8 h-8 md:w-12 md:h-12 animate-flame"
                   fill="currentColor"
-                  style={{ color: "#f97316" }}
+                  style={{ color: accentColor }}
                 />
               </span>
             </h1>
 
-            {/* Typewriter subtitle */}
             <p
-              className="text-sm sm:text-base md:text-xl max-w-2xl mx-auto leading-relaxed min-h-[1.8em]"
+              className="text-sm sm:text-base md:text-xl max-w-2xl mx-auto leading-relaxed min-h-[1.8em] transition-colors duration-300"
               style={{
-                color: "var(--tx-body)",   /* was orange-100/60 — now #c4a882, clearly readable */
+                color: txBody,
                 opacity: heroVisible ? 1 : 0,
                 transition: "opacity 0.7s cubic-bezier(.22,1,.36,1) 0.55s",
               }}
@@ -776,24 +930,23 @@ const HomePage = ({ onLogout }: HomePageProps) => {
               {!subtitleDone && (
                 <span
                   className="blink inline-block w-0.5 h-4 ml-0.5 align-middle rounded-sm"
-                  style={{ background: "var(--flame)" }}
+                  style={{ background: accentColor }}
                 />
               )}
             </p>
           </div>
 
-          {/* ══════════════════════════════════════════════
-              2. SWIPE DECK
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 2. SWIPE DECK ══════ */}
           <div ref={deckRef} className="mb-12 md:mb-20 max-w-md md:max-w-4xl mx-auto w-full">
             <div className="relative animate-deck">
 
-              {/* Deck ambient halo */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[118%] h-[118%] -z-10 pointer-events-none"
-                style={{ background: "radial-gradient(ellipse, rgba(234,88,12,0.14) 0%, transparent 62%)", filter: "blur(28px)" }}
+              {/* Deck halo */}
+              <div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[118%] h-[118%] -z-10 pointer-events-none"
+                style={{ background: deckHaloColor, filter: "blur(28px)" }}
               />
 
-              {/* Like burst */}
+              {/* Like burst particles */}
               {likeAnimating && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20" aria-hidden="true">
                   {[0,45,90,135,180,225,270,315].map((deg, i) => (
@@ -802,7 +955,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                       className="burst-particle"
                       style={{
                         "--angle": `${deg}deg`,
-                        background: i % 2 === 0 ? "#fbbf24" : "#f97316",
+                        background: i % 2 === 0 ? burstColors[0] : burstColors[1],
                         animationDelay: `${i * 0.025}s`,
                       } as React.CSSProperties}
                     />
@@ -814,12 +967,8 @@ const HomePage = ({ onLogout }: HomePageProps) => {
               {!authLoading && !deckLocked && dailyLimit !== null && (
                 <div className="absolute -top-5 left-1/2 z-10 animate-badge">
                   <div
-                    className="flex items-center gap-2.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap"
-                    style={{
-                      background: "linear-gradient(135deg, #1e1208, #291606)",
-                      border: "1px solid rgba(249,115,22,0.42)",
-                      boxShadow: "0 4px 18px rgba(0,0,0,0.55), 0 0 0 1px rgba(249,115,22,0.08)",
-                    }}
+                    className="flex items-center gap-2.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-300"
+                    style={counterBadge}
                   >
                     <span className="flex gap-1.5 items-center">
                       {Array.from({ length: Math.min(dailyLimit, 10) }).map((_, i) => (
@@ -830,75 +979,57 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                             display: "inline-block",
                             width: 8, height: 8,
                             borderRadius: "50%",
-                            background: i < swipesUsed
-                              ? "rgba(100,50,15,0.6)"
-                              : i === swipesUsed
-                              ? "#fb923c"
-                              : "#f97316",
-                            boxShadow: i >= swipesUsed ? "0 0 5px rgba(249,115,22,0.6)" : "none",
+                            background: i < swipesUsed ? dotUsed : i === swipesUsed ? dotCurrent : dotFilled,
+                            boxShadow: i >= swipesUsed ? `0 0 5px ${dotGlowColor}` : "none",
                             transition: "background 0.4s",
                           }}
                         />
                       ))}
                     </span>
-                    {/* HIGH-CONTRAST badge text — was nearly invisible */}
-                    <span style={{ color: "#e8a060" }}>
+                    <span style={{ color: isDark ? "#e8a060" : "#1d4ed8" }}>
                       {swipesLeft === 1 ? "1 swipe left today" : `${swipesLeft} swipes left today`}
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* ── Loading state ── */}
+              {/* ── Loading ── */}
               {loadingMatches ? (
                 <div
-                  className="flex flex-col items-center justify-center h-[420px] w-full rounded-[32px] md:rounded-[40px] p-4 overflow-hidden border-breath"
-                  style={{
-                    background: "linear-gradient(145deg, var(--surface-1), #110c05)",
-                    border: "1px solid rgba(249,115,22,0.16)",
-                    boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-                  }}
+                  className="flex flex-col items-center justify-center h-[420px] w-full rounded-[32px] md:rounded-[40px] p-4 overflow-hidden border-breath transition-all duration-300"
+                  style={loadingCard}
                 >
-                  <div className="w-28 h-28 rounded-full shimmer-warm mb-5" />
-                  <div className="w-52 h-4  rounded-full shimmer-warm mb-3" />
-                  <div className="w-36 h-3  rounded-full shimmer-warm mb-2 opacity-70" style={{ animationDelay: "0.2s" }} />
-                  <div className="w-44 h-3  rounded-full shimmer-warm mb-8 opacity-45" style={{ animationDelay: "0.4s" }} />
-                  {/* FIXED: was orange-300/50 ≈ invisible — now #c2763a */}
-                  <p className="text-sm font-semibold" style={{ color: "#c2763a" }}>Kindling connections…</p>
+                  <div className={`w-28 h-28 rounded-full ${shimmerClass} mb-5`} />
+                  <div className={`w-52 h-4 rounded-full ${shimmerClass} mb-3`} />
+                  <div className={`w-36 h-3 rounded-full ${shimmerClass} mb-2 opacity-70`} style={{ animationDelay: "0.2s" }} />
+                  <div className={`w-44 h-3 rounded-full ${shimmerClass} mb-8 opacity-45`} style={{ animationDelay: "0.4s" }} />
+                  <p className="text-sm font-semibold transition-colors duration-300" style={{ color: isDark ? "#c2763a" : "#64748b" }}>
+                    Kindling connections…
+                  </p>
                 </div>
 
               ) : error ? (
                 <div
-                  className="text-center py-20 px-4 rounded-[32px] md:rounded-[40px] text-sm md:text-base"
-                  style={{
-                    background: "var(--surface-1)",
-                    color: "#f87171",
-                    border: "1px solid rgba(239,68,68,0.28)",
-                  }}
+                  className="text-center py-20 px-4 rounded-[32px] md:rounded-[40px] text-sm md:text-base transition-all duration-300"
+                  style={errorCard}
                 >
                   {error}
                 </div>
 
               ) : profiles.length === 0 && !deckLocked ? (
                 <div
-                  className="flex flex-col items-center justify-center h-[420px] w-full text-center p-8 rounded-[32px] md:rounded-[40px] border-breath"
-                  style={{
-                    background: "linear-gradient(145deg, var(--surface-1), #110c05)",
-                    border: "1px solid rgba(249,115,22,0.16)",
-                    boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-                  }}
+                  className="flex flex-col items-center justify-center h-[420px] w-full text-center p-8 rounded-[32px] md:rounded-[40px] border-breath transition-all duration-300"
+                  style={emptyCard}
                 >
                   <Flame
                     className="w-14 h-14 md:w-16 md:h-16 mb-4 animate-flame"
                     fill="currentColor"
-                    style={{ color: "#7c3d12", opacity: 0.65 }}
+                    style={{ color: accentColor, opacity: 0.5 }}
                   />
-                  {/* FIXED: crisp white heading */}
-                  <h3 className="text-lg md:text-xl font-bold" style={{ color: "var(--tx-primary)" }}>
+                  <h3 className="text-lg md:text-xl font-bold transition-colors duration-300" style={{ color: txPrimary }}>
                     No more profiles
                   </h3>
-                  {/* FIXED: was orange-200/40 ≈ invisible */}
-                  <p className="text-xs md:text-sm mt-2 max-w-[200px] md:max-w-none" style={{ color: "var(--tx-body)" }}>
+                  <p className="text-xs md:text-sm mt-2 max-w-[200px] md:max-w-none transition-colors duration-300" style={{ color: txBody }}>
                     Check back later for more people nearby!
                   </p>
                 </div>
@@ -906,7 +1037,7 @@ const HomePage = ({ onLogout }: HomePageProps) => {
               ) : (
                 <div
                   className="relative transition-transform duration-300 hover:-translate-y-1.5"
-                  style={{ filter: "drop-shadow(0 24px 48px rgba(0,0,0,0.55))" }}
+                  style={{ filter: `drop-shadow(0 24px 48px rgba(0,0,0,${isDark ? "0.55" : "0.08"}))` }}
                 >
                   <div className={deckLocked ? "pointer-events-none select-none" : ""}>
                     <AnonymousSwipeDeck profiles={profiles} onLike={handleLike} onDislike={handleDislike} />
@@ -925,115 +1056,88 @@ const HomePage = ({ onLogout }: HomePageProps) => {
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════
-              3. STATS
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 3. STATS ══════ */}
           <div className="grid grid-cols-3 gap-3 md:gap-8 mb-12 md:mb-16 max-w-4xl mx-auto px-2 md:px-0">
             {[
               { label: "Active Users", value: "10K+" },
               { label: "Matches Made", value: "50K+" },
               { label: "Success Rate", value: "92%"  },
             ].map((stat, i) => (
-              <AnimatedStat key={i} value={stat.value} label={stat.label} delay={i * 0.14} />
+              <AnimatedStat key={i} value={stat.value} label={stat.label} delay={i * 0.14} isDark={isDark} />
             ))}
           </div>
 
-          {/* ══════════════════════════════════════════════
-              4. PROFILE COMPLETION
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 4. PROFILE COMPLETION ══════ */}
           <div className="max-w-3xl mx-auto mb-16 md:mb-20 px-2 md:px-0">
             <ProfileCompletion />
           </div>
 
-          {/* ══════════════════════════════════════════════
-              5. BANNERS
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 5. BANNERS ══════ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto mb-16 px-2 md:px-0">
             <div className="h-full min-h-[180px]"><NearbyBanner /></div>
             <PremiumBanner />
           </div>
 
-          {/* ══════════════════════════════════════════════
-              6. EXPERT TIPS
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 6. EXPERT TIPS ══════ */}
           <div className="max-w-5xl mx-auto mb-16 sm:mb-20 px-2 md:px-0">
             <ExpertTipsBanner />
           </div>
 
-          {/* ══════════════════════════════════════════════
-              7. STORIES
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 7. REVIEW CAROUSEL ══════ */}
           <div className="mb-12 sm:mb-16 lg:mb-20">
             <ReviewCarousel />
           </div>
 
-          {/* ══════════════════════════════════════════════
-              8. WRITE YOUR STORY
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 8. WRITE YOUR STORY ══════ */}
           <div className="max-w-3xl mx-auto mb-16 sm:mb-24 px-4 md:px-0">
             <div
-              className="relative rounded-[24px] md:rounded-[32px] p-6 md:p-10 overflow-hidden border-breath"
-              style={{
-                background: "linear-gradient(145deg, #181108 0%, #100c04 100%)",
-                border: "1px solid rgba(249,115,22,0.22)",
-                boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.025)",
-              }}
+              className="relative rounded-[24px] md:rounded-[32px] p-6 md:p-10 overflow-hidden border-breath transition-all duration-300"
+              style={storyCard}
             >
-              {/* Decorative corner flame */}
+              {/* Corner flame deco */}
               <Flame
                 className="absolute top-4 right-4 md:top-6 md:right-6 w-20 h-20 md:w-28 md:h-28 -rotate-12 pointer-events-none animate-flame"
                 fill="currentColor"
-                style={{ color: "#f97316", opacity: 0.1 }}
+                style={{ color: accentColor, opacity: flameOpacity }}
               />
-              {/* Bottom-right radial */}
               <div className="absolute bottom-0 right-0 w-60 h-60 pointer-events-none"
-                style={{ background: "radial-gradient(circle, rgba(249,115,22,0.07) 0%, transparent 70%)" }} />
-              {/* Top shimmer bar */}
+                style={{ background: storyCornerGlow }} />
               <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-                style={{ background: "linear-gradient(90deg, transparent 8%, rgba(249,115,22,0.45) 50%, transparent 92%)" }} />
+                style={{ background: storyTopAccent }} />
 
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-3 md:mb-4">
                   <div
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0"
-                    style={{
-                      background: "rgba(249,115,22,0.14)",
-                      border: "1px solid rgba(249,115,22,0.35)",
-                      boxShadow: "0 0 14px rgba(249,115,22,0.2)",
-                    }}
+                    className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
+                    style={storyIconWrap}
                   >
-                    <Heart className="w-4 h-4 md:w-5 md:h-5 fill-current" style={{ color: "#fb923c" }} />
+                    <Heart className="w-4 h-4 md:w-5 md:h-5 fill-current transition-colors duration-300" style={{ color: accentEmber }} />
                   </div>
-                  {/* Bright heading — always readable */}
-                  <h2 className="text-lg md:text-3xl font-black leading-tight" style={{ color: "var(--tx-primary)" }}>
+                  <h2 className="text-lg md:text-3xl font-black leading-tight transition-colors duration-300" style={{ color: txPrimary }}>
                     Found your person?
                   </h2>
                 </div>
 
-                {/* FIXED: was orange-100/50 ≈ dim — now tx-body #c4a882 */}
-                <p className="mb-6 text-xs md:text-base max-w-lg leading-relaxed" style={{ color: "var(--tx-body)" }}>
+                <p className="mb-6 text-xs md:text-base max-w-lg leading-relaxed transition-colors duration-300" style={{ color: txBody }}>
                   Share your success story! Once approved by our team, your story will be featured here to inspire others.
                 </p>
 
                 {justSubmitted && (
                   <div
-                    className="mb-4 p-4 rounded-xl flex items-start gap-3"
-                    style={{
-                      background: "rgba(194,119,58,0.1)",
-                      border: "1px solid rgba(249,115,22,0.32)",
-                      animation: "scrollReveal 0.4s cubic-bezier(.22,1,.36,1) both",
-                    }}
+                    className="mb-4 p-4 rounded-xl flex items-start gap-3 transition-all duration-300"
+                    style={{ ...submittedBox, animation: "scrollReveal 0.4s cubic-bezier(.22,1,.36,1) both" }}
                   >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                      style={{ background: "rgba(249,115,22,0.18)" }}>
-                      <Heart className="w-4 h-4 fill-current" style={{ color: "#fb923c" }} />
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
+                      style={{ background: isDark ? "rgba(249,115,22,0.18)" : "rgba(29,78,216,0.1)" }}
+                    >
+                      <Heart className="w-4 h-4 fill-current" style={{ color: accentEmber }} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold mb-0.5" style={{ color: "#f5c07a" }}>
-                        Story submitted! 🔥
+                      <p className="text-sm font-semibold mb-0.5 transition-colors duration-300" style={{ color: submittedText }}>
+                        Story submitted! {isDark ? "🔥" : "✨"}
                       </p>
-                      {/* FIXED: was orange-300/60 ≈ dim */}
-                      <p className="text-xs" style={{ color: "var(--tx-body)" }}>
+                      <p className="text-xs transition-colors duration-300" style={{ color: txBody }}>
                         Our team will review and feature it soon. Thank you for sharing!
                       </p>
                     </div>
@@ -1043,42 +1147,35 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                 {/* Textarea wrapper */}
                 <div
                   className="rounded-xl md:rounded-2xl p-2 transition-all duration-300"
-                  style={{
-                    background: "rgba(255,255,255,0.025)",
-                    border: "1px solid rgba(249,115,22,0.18)",
-                  }}
+                  style={textareaWrap}
                   onFocusCapture={(e) => {
                     const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = "rgba(249,115,22,0.55)";
-                    el.style.boxShadow   = "0 0 28px rgba(249,115,22,0.12)";
+                    el.style.borderColor = textareaFocusBorder;
+                    el.style.boxShadow   = textareaFocusShadow;
                   }}
                   onBlurCapture={(e) => {
                     const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = "rgba(249,115,22,0.18)";
+                    el.style.borderColor = isDark ? "rgba(249,115,22,0.18)" : "rgba(29,78,216,0.12)";
                     el.style.boxShadow   = "none";
                   }}
                 >
                   <textarea
-                    className="w-full p-3 md:p-4 rounded-lg md:rounded-xl outline-none min-h-[100px] md:min-h-[120px] bg-transparent resize-none text-sm md:text-base"
+                    className="w-full p-3 md:p-4 rounded-lg md:rounded-xl outline-none min-h-[100px] md:min-h-[120px] bg-transparent resize-none text-sm md:text-base transition-colors duration-300"
                     placeholder="Tell us how you met…"
                     value={storyText}
                     onChange={(e) => setStoryText(e.target.value)}
                     maxLength={MAX_STORY_LENGTH}
                     disabled={submittingStory}
-                    style={{
-                      color: "var(--tx-primary)",         /* FIXED: bright, fully legible */
-                      caretColor: "var(--flame)",
-                      /* placeholder color via style injection */
-                    } as React.CSSProperties}
+                    style={{ color: txPrimary, caretColor: accentColor }}
                   />
                   <div
                     className="flex items-center justify-between px-3 py-2"
-                    style={{ borderTop: "1px solid rgba(249,115,22,0.1)" }}
+                    style={{ borderTop: textareaDivider }}
                   >
-                    {/* FIXED: was orange-900/60 which is near-black on dark = invisible */}
-                    <span className="text-xs font-medium" style={{
-                      color: storyText.length > MAX_STORY_LENGTH * 0.9 ? "#fb923c" : "var(--tx-muted)",
-                    }}>
+                    <span
+                      className="text-xs font-medium transition-colors duration-300"
+                      style={{ color: storyText.length > MAX_STORY_LENGTH * 0.9 ? accentEmber : txMuted }}
+                    >
                       {storyText.length}/{MAX_STORY_LENGTH}
                       {storyText.length < 50 && storyText.length > 0 && (
                         <span className="ml-2" style={{ color: "#f87171" }}>(min. 50)</span>
@@ -1088,16 +1185,12 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                       onClick={handleSubmitStory}
                       disabled={submittingStory || !storyText.trim() || storyText.trim().length < 50}
                       className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{
-                        background: "linear-gradient(135deg, #c2410c 0%, #ea580c 40%, #f97316 100%)",
-                        boxShadow: "0 4px 18px rgba(194,65,12,0.45)",
-                        transition: "box-shadow 0.2s, transform 0.15s",
-                      }}
+                      style={submitBtn}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 26px rgba(249,115,22,0.55)";
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow = submitBtnHoverShadow;
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 18px rgba(194,65,12,0.45)";
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow = submitBtn.boxShadow;
                       }}
                     >
                       {submittingStory ? (
@@ -1112,24 +1205,19 @@ const HomePage = ({ onLogout }: HomePageProps) => {
                   </div>
                 </div>
 
-                {/* FIXED: was orange-900/60 = nearly invisible dark brownish text */}
-                <p className="text-[10px] md:text-xs mt-3 text-center" style={{ color: "var(--tx-muted)" }}>
+                <p className="text-[10px] md:text-xs mt-3 text-center transition-colors duration-300" style={{ color: txMuted }}>
                   By submitting, you agree to let us share your story on our platform. Stories are reviewed before being published.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════
-              9. SECURITY BANNER
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 9. SECURITY BANNER ══════ */}
           <div className="max-w-5xl mx-auto mb-12 sm:mb-16 px-2 md:px-0">
             <SecurityBanner />
           </div>
 
-          {/* ══════════════════════════════════════════════
-              10. FOOTER
-          ══════════════════════════════════════════════ */}
+          {/* ══════ 10. FOOTER ══════ */}
           <Footer />
         </main>
       </div>

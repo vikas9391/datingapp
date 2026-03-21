@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
+import { useTheme } from "@/components/ThemeContext";
 
 interface ToggleSwitchProps {
   label: string;
@@ -14,34 +15,85 @@ export const ToggleSwitch = ({
   onChange,
   className,
 }: ToggleSwitchProps) => {
+  const { isDark } = useTheme();
+
+  const wrapperStyle: React.CSSProperties = isDark
+    ? checked
+      ? {
+          background: "rgba(249,115,22,0.08)",
+          border: "2px solid rgba(249,115,22,0.3)",
+        }
+      : {
+          background: "#1c1c1c",
+          border: "2px solid rgba(249,115,22,0.12)",
+        }
+    : checked
+    ? {
+        background: "rgba(29,78,216,0.05)",
+        border: "2px solid rgba(29,78,216,0.25)",
+      }
+    : {
+        background: "#ffffff",
+        border: "2px solid #e2e8f0",
+      };
+
+  const labelColor = isDark
+    ? checked ? "#fb923c" : "#8a6540"
+    : checked ? "#1e3a8a" : "#64748b";
+
+  const trackBg = isDark
+    ? checked ? "#f97316" : "#2a2a2a"
+    : checked ? "#1d4ed8" : "#e2e8f0";
+
+  const trackHoverBg = isDark ? "#3a3a3a" : "#cbd5e1";
+
   return (
     <button
       onClick={() => onChange(!checked)}
       className={cn(
-        "flex items-center justify-between w-full py-4 px-5 rounded-2xl border-2 transition-all duration-200 bg-white group",
-        checked
-          ? "border-teal-500/30 bg-teal-50/50" // Subtle active background
-          : "border-gray-100 hover:border-gray-200",
+        "flex items-center justify-between w-full py-4 px-5 rounded-2xl transition-all duration-200 group",
         className
       )}
+      style={wrapperStyle}
+      onMouseEnter={(e) => {
+        if (!checked) {
+          const el = e.currentTarget as HTMLElement;
+          el.style.borderColor = isDark
+            ? "rgba(249,115,22,0.25)"
+            : "rgba(29,78,216,0.2)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!checked) {
+          const el = e.currentTarget as HTMLElement;
+          el.style.borderColor = isDark
+            ? "rgba(249,115,22,0.12)"
+            : "#e2e8f0";
+        }
+      }}
     >
-      <span className={cn(
-        "text-sm font-medium transition-colors",
-        checked ? "text-teal-900" : "text-gray-600"
-      )}>
+      <span
+        className="text-sm font-medium transition-colors duration-200"
+        style={{ color: labelColor }}
+      >
         {label}
       </span>
-      
-      {/* Switch Track */}
+
+      {/* Switch track */}
       <div
-        className={cn(
-          "w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out",
-          checked ? "bg-teal-500" : "bg-gray-200 group-hover:bg-gray-300"
-        )}
+        className="w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out shrink-0"
+        style={{ background: trackBg }}
+        onMouseEnter={(e) => {
+          if (!checked) (e.currentTarget as HTMLElement).style.background = trackHoverBg;
+        }}
+        onMouseLeave={(e) => {
+          if (!checked) (e.currentTarget as HTMLElement).style.background = trackBg;
+        }}
       >
-        {/* Switch Thumb */}
+        {/* Switch thumb */}
         <motion.div
-          className="w-5 h-5 rounded-full bg-white shadow-sm"
+          className="w-5 h-5 rounded-full shadow-sm"
+          style={{ background: isDark && !checked ? "#3a3a3a" : "#ffffff" }}
           animate={{ x: checked ? 20 : 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         />

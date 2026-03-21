@@ -13,6 +13,7 @@ import Step8Bio from "./steps/Step9Bio";
 import Step9Social from "./steps/Step10Social";
 import Step10Review from "./steps/Step11Review";
 import { profileService } from "../../services/profileService";
+import { useTheme } from "@/components/ThemeContext";
 
 export type OnboardingData = {
   firstName: string;
@@ -77,8 +78,6 @@ const initialData: OnboardingData = {
 };
 
 const TOTAL_STEPS = 10;
-
-// Key used to signal "onboarding just completed — skip the reload guard"
 const ONBOARDING_DONE_KEY = "onboarding_complete";
 
 export default function OnboardingFlow({
@@ -88,27 +87,22 @@ export default function OnboardingFlow({
   onComplete?: () => void;
   onLogout?: () => void;
 }) {
+  const { isDark } = useTheme();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<OnboardingData>(initialData);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // FIX: track whether we are in the middle of finishing so we don't
-  // accidentally reload the profile or reset state mid-navigation.
   const isFinishingRef = useRef(false);
-
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load saved data from localStorage on mount
   useEffect(() => {
     const savedData = localStorage.getItem("onboardingData");
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        if (parsed.dateOfBirth) {
-          parsed.dateOfBirth = new Date(parsed.dateOfBirth);
-        }
+        if (parsed.dateOfBirth) parsed.dateOfBirth = new Date(parsed.dateOfBirth);
         parsed.photos = [];
         delete parsed.conversationStarter;
         setData({ ...initialData, ...parsed });
@@ -118,36 +112,25 @@ export default function OnboardingFlow({
     }
   }, []);
 
-  // Save to localStorage whenever data changes (without photos)
   useEffect(() => {
-    // Don't write to localStorage after we're done — avoids a race where the
-    // cleanup in saveProfileAndFinish is immediately overwritten.
     if (isFinishingRef.current) return;
     const { photos: _photos, ...rest } = data;
     localStorage.setItem("onboardingData", JSON.stringify(rest));
   }, [data]);
 
-  // Load existing profile from API
   useEffect(() => {
     loadExistingProfile();
-
     const state = location.state as { startStep?: number } | null;
-    if (state?.startStep) {
-      setStep(state.startStep);
-    }
+    if (state?.startStep) setStep(state.startStep);
   }, []);
 
   const loadExistingProfile = async () => {
-    // FIX: if we just finished onboarding, skip the API reload entirely
-    // so we don't overwrite the just-saved data or re-render the flow.
     if (isFinishingRef.current) return;
-
     try {
       setIsLoading(true);
       const result = await profileService.getProfile();
-
       if (result?.exists && result?.data) {
-        const mergedData = {
+        setData({
           ...initialData,
           ...result.data,
           photos: [],
@@ -155,8 +138,7 @@ export default function OnboardingFlow({
           communicationStyle: result.data.communicationStyle || [],
           interests: result.data.interests || [],
           socialAccounts: result.data.socialAccounts || initialData.socialAccounts,
-        };
-        setData(mergedData);
+        });
       }
     } catch (err) {
       console.error("⚠️ Failed to load profile:", err);
@@ -206,32 +188,22 @@ export default function OnboardingFlow({
   };
 
   const saveProfileAndFinish = async () => {
-    // FIX: set the ref immediately so no other effect can trigger a reload
     isFinishingRef.current = true;
-
     try {
       setIsSaving(true);
       await profileService.saveProfile(data);
-
-      // Clean up all onboarding state from storage
       localStorage.removeItem("onboardingData");
       localStorage.removeItem(ONBOARDING_DONE_KEY);
-
-      // Small delay so the save request fully completes before we navigate
       await new Promise((resolve) => setTimeout(resolve, 150));
-
       if (data.gender && data.gender.toLowerCase() === "man") {
-        // Men are shown the premium upsell first
         navigate("/premium", { replace: true });
       } else if (onComplete) {
-        // Parent component handles the redirect (e.g. in a modal flow)
         onComplete();
       } else {
         navigate("/home", { replace: true });
       }
     } catch (err) {
       console.error("❌ Profile save failed:", err);
-      // On error, allow the user to try again
       isFinishingRef.current = false;
     } finally {
       setIsSaving(false);
@@ -249,7 +221,6 @@ export default function OnboardingFlow({
       onboardingData: data,
       onStepClick: handleStepClick,
     };
-
     switch (step) {
       case 1:  return <Step1BasicInfo {...commonProps} />;
       case 2:  return <Step2Orientation {...commonProps} />;
@@ -265,19 +236,34 @@ export default function OnboardingFlow({
     }
   };
 
+  /* ─── Loading screen ─── */
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center transition-colors duration-300"
+        style={{ background: isDark ? "#0d0d0d" : "#f8f9fc" }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your profile...</p>
+          <div
+            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+            style={{ borderColor: isDark ? "#f97316" : "#1d4ed8" }}
+          />
+          <p
+            className="text-sm font-medium transition-colors duration-300"
+            style={{ color: isDark ? "#8a6540" : "#64748b" }}
+          >
+            Loading your profile...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-300"
+      style={{ background: isDark ? "#0d0d0d" : "#f8f9fc" }}
+    >
       <TopBar userName={data.firstName || "User"} onLogout={onLogout} />
       <AnimatePresence mode="wait">
         <motion.div

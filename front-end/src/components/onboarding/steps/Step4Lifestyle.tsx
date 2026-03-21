@@ -2,39 +2,50 @@
 import StepLayout from "../StepLayout";
 import { ChipSelector } from "../ChipSelector";
 import { OnboardingData } from "../OnboardingFlow";
+import { useTheme } from "@/components/ThemeContext";
 
 interface Step3Props {
-  data: Pick<OnboardingData, 'drinking' | 'smoking' | 'workout' | 'pets'>;
-  onChange: (data: Step3Props['data']) => void;
+  data: Pick<OnboardingData, "drinking" | "smoking" | "workout" | "pets">;
+  onChange: (data: Step3Props["data"]) => void;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
+  isSaving?: boolean;
+  onboardingData?: OnboardingData;
+  onStepClick?: (step: number) => void;
 }
 
 const lifestyleOptions = {
   drinking: [
-    { label: "Never", emoji: "🚫" },
+    { label: "Never",    emoji: "🚫" },
     { label: "Socially", emoji: "🍷" },
     { label: "Regularly", emoji: "🍻" },
   ],
   smoking: [
-    { label: "Never", emoji: "🚭" },
+    { label: "Never",     emoji: "🚭" },
     { label: "Sometimes", emoji: "💨" },
     { label: "Regularly", emoji: "🚬" },
   ],
   workout: [
-    { label: "Never", emoji: "🛋️" },
+    { label: "Never",     emoji: "🛋️" },
     { label: "Sometimes", emoji: "🚶" },
-    { label: "Often", emoji: "💪" },
-    { label: "Daily", emoji: "✨" },
+    { label: "Often",     emoji: "💪" },
+    { label: "Daily",     emoji: "✨" },
   ],
   pets: [
-    { label: "Own pets", emoji: "🐾" },
+    { label: "Own pets",  emoji: "🐾" },
     { label: "Love pets", emoji: "❤️" },
-    { label: "Allergic", emoji: "🤧" },
-    { label: "None", emoji: "🚫" },
+    { label: "Allergic",  emoji: "🤧" },
+    { label: "None",      emoji: "🚫" },
   ],
 } as const;
+
+const SECTIONS: { key: keyof typeof lifestyleOptions; label: string }[] = [
+  { key: "drinking", label: "Drinking" },
+  { key: "smoking",  label: "Smoking" },
+  { key: "workout",  label: "Working out" },
+  { key: "pets",     label: "Pets" },
+];
 
 export const Step3Lifestyle = ({
   data,
@@ -42,7 +53,14 @@ export const Step3Lifestyle = ({
   onNext,
   onBack,
   onSkip,
+  isSaving,
+  onboardingData,
+  onStepClick,
 }: Step3Props) => {
+  const { isDark } = useTheme();
+
+  const labelColor = isDark ? "#f0e8de" : "#0f172a";
+
   return (
     <StepLayout
       currentStep={3}
@@ -52,79 +70,32 @@ export const Step3Lifestyle = ({
       onBack={onBack}
       onNext={onNext}
       onSkip={onSkip}
+      isSaving={isSaving}
+      data={onboardingData}
+      onStepClick={onStepClick}
     >
       <div className="space-y-10">
-        {/* Drinking */}
-        <div className="space-y-4">
-          <label className="text-base font-semibold text-gray-900 block">
-            Drinking
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {lifestyleOptions.drinking.map(({ label, emoji }) => (
-              <ChipSelector
-                key={label}
-                label={label}
-                icon={emoji}
-                selected={data.drinking === label}
-                onClick={() => onChange({ ...data, drinking: label })}
-              />
-            ))}
+        {SECTIONS.map(({ key, label }) => (
+          <div key={key} className="space-y-4">
+            <label
+              className="text-base font-semibold block transition-colors duration-300"
+              style={{ color: labelColor }}
+            >
+              {label}
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {lifestyleOptions[key].map(({ label: optLabel, emoji }) => (
+                <ChipSelector
+                  key={optLabel}
+                  label={optLabel}
+                  icon={emoji}
+                  selected={data[key] === optLabel}
+                  onClick={() => onChange({ ...data, [key]: optLabel })}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Smoking */}
-        <div className="space-y-4">
-          <label className="text-base font-semibold text-gray-900 block">
-            Smoking
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {lifestyleOptions.smoking.map(({ label, emoji }) => (
-              <ChipSelector
-                key={label}
-                label={label}
-                icon={emoji}
-                selected={data.smoking === label}
-                onClick={() => onChange({ ...data, smoking: label })}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Workout */}
-        <div className="space-y-4">
-          <label className="text-base font-semibold text-gray-900 block">
-            Working out
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {lifestyleOptions.workout.map(({ label, emoji }) => (
-              <ChipSelector
-                key={label}
-                label={label}
-                icon={emoji}
-                selected={data.workout === label}
-                onClick={() => onChange({ ...data, workout: label })}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Pets */}
-        <div className="space-y-4">
-          <label className="text-base font-semibold text-gray-900 block">
-            Pets
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {lifestyleOptions.pets.map(({ label, emoji }) => (
-              <ChipSelector
-                key={label}
-                label={label}
-                icon={emoji}
-                selected={data.pets === label}
-                onClick={() => onChange({ ...data, pets: label })}
-              />
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </StepLayout>
   );

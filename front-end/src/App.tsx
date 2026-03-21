@@ -7,19 +7,14 @@ import NotFound from "./pages/NotFound";
 import HomePage from "./pages/HomePage";
 import ChatsPage from "./pages/ChatsPage";
 import NotificationsPage from "./pages/NotificationsPage";
-import CafesPage from "./pages/CafesPage";
-import BookingPage from "./pages/BookingPage";
 import LoginPage from "./pages/LoginPage";
 import ProfilePage from "./pages/ProfilePage";
 import OnboardingPage from "./pages/OnboardingPage";
 import AdminPanel from './pages/AdminPanel';
-import PremiumPage from './pages/Premiumpage'; 
+import PremiumPage from './pages/Premiumpage';
 import Settings from "@/pages/Settings";
 import BlockedUsersPage from "@/pages/BlockedUsersPage";
 import DataPrivacyPage from "@/pages/DataPrivacyPage";
-
-// ✅ SERVICES
-import { adminService, profileService } from './services/profileService'; 
 
 /* ---------------- FOOTER PAGES ---------------- */
 import LegalPage from './pages/footer/LegalPage';
@@ -28,19 +23,34 @@ import ContactPage from './pages/footer/ContactPage';
 import CareersPage from './pages/footer/CareersPage';
 import HelpCenterPage from './pages/footer/HelpCenterPage';
 
-// Admin Protected Route
+/* ---------------- SERVICES & THEME ---------------- */
+import { adminService, profileService } from './services/profileService';
+import { ThemeProvider } from "@/components/ThemeContext";
+
+/* ─── Admin-only route guard ─── */
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const isAdmin = adminService.isAdmin();
   if (!isAdmin) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
+/* ─── Loading spinner ─── */
+const Spinner = () => (
+  <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#0d0d0d]">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
+  </div>
+);
+
+/* ═══════════════════════════════════════════════════════
+   INNER APP
+═══════════════════════════════════════════════════════ */
 const AppInner: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [isLoggedIn, setIsLoggedIn]           = useState<boolean | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
+  /* Scroll-to-top on route change (except chats) */
   useEffect(() => {
     if (!location.pathname.startsWith('/chats')) {
       window.scrollTo(0, 0);
@@ -50,11 +60,10 @@ const AppInner: React.FC = () => {
   const checkProfile = async () => {
     try {
       const result = await profileService.getProfile();
-      const isProfileComplete = result.exists && result.data && result.data.firstName;
-      setNeedsOnboarding(!isProfileComplete);
-      return isProfileComplete;
-    } catch (error) {
-      console.error("Profile check failed:", error);
+      const isComplete = result.exists && result.data?.firstName;
+      setNeedsOnboarding(!isComplete);
+      return !!isComplete;
+    } catch {
       handleLogout();
       return false;
     }
@@ -68,8 +77,8 @@ const AppInner: React.FC = () => {
         return;
       }
 
-      const params = new URLSearchParams(window.location.search);
-      const accessFromQuery = params.get("access_token");
+      const params           = new URLSearchParams(window.location.search);
+      const accessFromQuery  = params.get("access_token");
       const refreshFromQuery = params.get("refresh_token");
 
       if (accessFromQuery) {
@@ -89,8 +98,9 @@ const AppInner: React.FC = () => {
         setIsLoggedIn(false);
       }
     };
+
     initAuth();
-  }, []); 
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoginSuccess = async () => {
     await checkProfile();
@@ -105,71 +115,94 @@ const AppInner: React.FC = () => {
   };
 
   if (isLoggedIn === null && !location.pathname.startsWith('/admin')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
-      </div>
-    );
+    return <Spinner />;
   }
+
+  const requireAuth   = (el: React.ReactNode) =>
+    !isLoggedIn
+      ? <Navigate to="/" replace />
+      : needsOnboarding
+        ? <Navigate to="/onboarding" replace />
+        : el;
+
+  const requireNoAuth = (el: React.ReactNode) =>
+    isLoggedIn
+      ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Navigate to="/home" replace />)
+      : el;
 
   return (
     <Routes>
+      {/* ── Admin ── */}
       <Route path="/admin/dashboard" element={<AdminRoute><AdminPanel /></AdminRoute>} />
-      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/admin"           element={<Navigate to="/admin/dashboard" replace />} />
 
-      {/* FOOTER PAGES */}
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/careers" element={<CareersPage />} />
-      <Route path="/press" element={<LegalPage type="press" />} />
-      <Route path="/blog" element={<LegalPage type="blog" />} />
-      <Route path="/help" element={<HelpCenterPage />} />
-      <Route path="/safety" element={<LegalPage type="safety" />} />
+      {/* ════════════════════════════════════════════════
+          FOOTER / PUBLIC PAGES
+          These must match every path in FooterManagement's
+          APP_ROUTES so the admin route picker always resolves.
+          ════════════════════════════════════════════════ */}
+
+      {/* — Legal & Support group — */}
+      <Route path="/about"      element={<AboutPage />} />
+      <Route path="/contact"    element={<ContactPage />} />
+      <Route path="/privacy"    element={<LegalPage type="privacy" />} />
+      <Route path="/terms"      element={<LegalPage type="terms" />} />
+      <Route path="/cookies"    element={<LegalPage type="cookies" />} />
+      <Route path="/help"       element={<HelpCenterPage />} />
+      <Route path="/safety"     element={<LegalPage type="safety" />} />
       <Route path="/guidelines" element={<LegalPage type="guidelines" />} />
-      <Route path="/contact" element={<ContactPage />} />
-      <Route path="/privacy" element={<LegalPage type="privacy" />} />
-      <Route path="/terms" element={<LegalPage type="terms" />} />
-      <Route path="/cookies" element={<LegalPage type="cookies" />} />
-      <Route path="/ip" element={<LegalPage type="ip" />} />
 
-      {/* SETTINGS & PRIVACY */}
-      <Route path="/settings" element={<Settings onLogout={handleLogout} />} />
-      <Route
-        path="/blocked-users"
-        element={
-          !isLoggedIn ? <Navigate to="/" replace /> :
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
-          <BlockedUsersPage />
-        }
-      />
-      <Route
-        path="/data-privacy"
-        element={
-          !isLoggedIn ? <Navigate to="/" replace /> :
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
-          <DataPrivacyPage onLogout={handleLogout} />
-        }
-      />
+      {/* — Company group — */}
+      <Route path="/careers"    element={<CareersPage />} />
+      <Route path="/press"      element={<LegalPage type="press" />} />
+      <Route path="/blog"       element={<LegalPage type="blog" />} />
+      <Route path="/ip"         element={<LegalPage type="ip" />} />
 
-      {/* CORE ROUTES */}
-      <Route path="/" element={isLoggedIn ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Navigate to="/home" replace />) : <Landing />} />
-      <Route path="/login" element={isLoggedIn ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Navigate to="/home" replace />) : <LoginPage onLoginSuccess={handleLoginSuccess} />} />
-      
+      {/* — Premium group — */}
+      <Route path="/pricing"    element={requireAuth(<PremiumPage />)} />
+
+      {/* — Account group — */}
+      <Route path="/account/delete" element={requireAuth(<DataPrivacyPage onLogout={handleLogout} />)} />
+
+      {/* ════════════════════════════════════════════════
+          SETTINGS & PRIVACY  (auth handled internally)
+          ════════════════════════════════════════════════ */}
+      <Route path="/settings"      element={<Settings onLogout={handleLogout} />} />
+      <Route path="/blocked-users" element={requireAuth(<BlockedUsersPage />)} />
+      <Route path="/data-privacy"  element={requireAuth(<DataPrivacyPage onLogout={handleLogout} />)} />
+
+      {/* ════════════════════════════════════════════════
+          CORE AUTH ROUTES
+          ════════════════════════════════════════════════ */}
+      <Route path="/"           element={requireNoAuth(<Landing />)} />
+      <Route path="/login"      element={requireNoAuth(<LoginPage onLoginSuccess={handleLoginSuccess} />)} />
       <Route path="/onboarding" element={isLoggedIn ? <OnboardingPage onComplete={() => setNeedsOnboarding(false)} onLogout={handleLogout} /> : <Navigate to="/" replace />} />
-      
-      {/* ✅ Premium Page (Protected Logic + Promo) */}
-      <Route path="/premium" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <PremiumPage />} />
+      <Route path="/premium"    element={requireAuth(<PremiumPage />)} />
 
-      <Route path="/home" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <HomePage onLogout={handleLogout} />} />
-      <Route path="/chats" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <ChatsPage onLogout={handleLogout} />} />
-      <Route path="/notifications" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <NotificationsPage onLogout={handleLogout} />} />
-      <Route path="/profile" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <ProfilePage />} />
-      <Route path="/cafes" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <CafesPage onLogout={handleLogout} />} />
-      <Route path="/cafes/:id/book" element={!isLoggedIn ? <Navigate to="/" replace /> : needsOnboarding ? <Navigate to="/onboarding" replace /> : <BookingPage />} />
-      
+      {/* ════════════════════════════════════════════════
+          PROTECTED APP PAGES
+          ════════════════════════════════════════════════ */}
+      <Route path="/home"          element={requireAuth(<HomePage onLogout={handleLogout} />)} />
+      <Route path="/chats"         element={requireAuth(<ChatsPage onLogout={handleLogout} />)} />
+      <Route path="/notifications" element={requireAuth(<NotificationsPage onLogout={handleLogout} />)} />
+      <Route path="/profile"       element={requireAuth(<ProfilePage />)} />
+      <Route path="/profile/edit"  element={requireAuth(<ProfilePage />)} />
+      <Route path="/matches"       element={requireAuth(<HomePage onLogout={handleLogout} />)} />
+      <Route path="/nearby"        element={requireAuth(<HomePage onLogout={handleLogout} />)} />
+
+      {/* ── 404 ── */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
 
-const App: React.FC = () => <AppInner />;
+/* ═══════════════════════════════════════════════════════
+   ROOT APP
+═══════════════════════════════════════════════════════ */
+const App: React.FC = () => (
+  <ThemeProvider>
+    <AppInner />
+  </ThemeProvider>
+);
+
 export default App;

@@ -4,13 +4,17 @@ import { CustomSlider } from "../CustomSlider";
 import { ToggleSwitch } from "../ToggleSwitch";
 import { MapPin } from "lucide-react";
 import { OnboardingData } from "../OnboardingFlow";
+import { useTheme } from "@/components/ThemeContext";
 
 interface Step2Props {
-  data: Pick<OnboardingData, 'distance' | 'strictDistance'>;
-  onChange: (data: Step2Props['data']) => void;
+  data: Pick<OnboardingData, "distance" | "strictDistance">;
+  onChange: (data: Step2Props["data"]) => void;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
+  isSaving?: boolean;
+  onboardingData?: OnboardingData;
+  onStepClick?: (step: number) => void;
 }
 
 export const Step2Distance = ({
@@ -19,7 +23,24 @@ export const Step2Distance = ({
   onNext,
   onBack,
   onSkip,
+  isSaving,
+  onboardingData,
+  onStepClick,
 }: Step2Props) => {
+  const { isDark } = useTheme();
+
+  /* ─── Theme tokens ─── */
+  const iconCircleBg = isDark
+    ? "linear-gradient(135deg, #c2410c, #f97316)"
+    : "linear-gradient(135deg, #1d4ed8, #3b82f6)";
+
+  const iconCircleShadow = isDark
+    ? "0 8px 28px rgba(194,65,12,0.4)"
+    : "0 8px 28px rgba(29,78,216,0.25)";
+
+  const labelColor = isDark ? "#f0e8de" : "#0f172a";
+  const hintColor  = isDark ? "#8a6540" : "#94a3b8";
+
   return (
     <StepLayout
       currentStep={2}
@@ -29,21 +50,31 @@ export const Step2Distance = ({
       onBack={onBack}
       onNext={onNext}
       onSkip={onSkip}
+      isSaving={isSaving}
+      data={onboardingData}
+      onStepClick={onStepClick}
     >
       <div className="space-y-10">
-        {/* Visual Icon - Solid Teal Circle */}
+
+        {/* Icon */}
         <div className="flex justify-center py-4">
-          <div className="w-24 h-24 rounded-full bg-teal-500 flex items-center justify-center shadow-xl shadow-teal-200">
+          <div
+            className="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300"
+            style={{ background: iconCircleBg, boxShadow: iconCircleShadow }}
+          >
             <MapPin className="w-10 h-10 text-white fill-white" />
           </div>
         </div>
 
-        {/* Distance Slider Section */}
+        {/* Distance Slider */}
         <div className="space-y-6">
-          <label className="text-base font-semibold text-gray-900 block">
+          <label
+            className="text-base font-semibold block transition-colors duration-300"
+            style={{ color: labelColor }}
+          >
             Maximum distance
           </label>
-          
+
           <CustomSlider
             value={data.distance}
             min={1}
@@ -63,7 +94,10 @@ export const Step2Distance = ({
           />
         </div>
 
-        <p className="text-xs text-gray-400 text-center pt-4">
+        <p
+          className="text-xs text-center pt-4 transition-colors duration-300"
+          style={{ color: hintColor }}
+        >
           You can always adjust this later in settings
         </p>
       </div>
