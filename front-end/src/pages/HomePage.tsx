@@ -88,12 +88,12 @@ const fetchSwipeStatus = async (): Promise<SwipeCountResponse> => {
     if (!res.ok) return defaultFree;
     const data = await res.json();
     return {
-      swipes_used:      data.swipes_used      ?? 0,
-      swipes_remaining: data.swipes_remaining  ?? FREE_SWIPE_LIMIT,
-      limit_reached:    data.limit_reached     ?? false,
-      is_premium:       data.is_premium        ?? false,
-      daily_limit:      data.daily_limit       ?? FREE_SWIPE_LIMIT,
-    };
+  swipes_used:      data.swipes_used      ?? 0,
+  swipes_remaining: data.swipes_remaining  ?? FREE_SWIPE_LIMIT,
+  limit_reached:    data.limit_reached     ?? false,   
+  is_premium:       data.is_premium        ?? false,
+  daily_limit:      data.daily_limit       ?? FREE_SWIPE_LIMIT,
+};
   } catch {
     return defaultFree;
   }
@@ -371,8 +371,9 @@ const HomePage = ({ onLogout }: HomePageProps) => {
         setSwipesUsed(swipeStatus.swipes_used);
         setDailyLimit(swipeStatus.daily_limit);
         const isUnlimitedPremium = swipeStatus.is_premium && swipeStatus.daily_limit === null;
-        if (swipeStatus.limit_reached && !isUnlimitedPremium) setDeckLocked(true);
-      } catch (err) {
+        if (swipeStatus.limit_reached && !isUnlimitedPremium && swipeStatus.swipes_used > 0) {
+        setDeckLocked(true);
+        }} catch (err) {
         console.error("Error fetching user profile:", err);
       } finally {
         setAuthLoading(false);

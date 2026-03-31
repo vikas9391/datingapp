@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 
 class UserProfile(models.Model):
+    
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -76,6 +77,7 @@ class UserProfile(models.Model):
     ]
 
     phone = models.CharField(max_length=20, blank=True)
+    swipes_reset_at = models.DateTimeField(null=True, blank=True)
     age = models.IntegerField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='offline')
     account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='active')

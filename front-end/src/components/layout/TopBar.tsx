@@ -47,7 +47,17 @@ export default function TopBar({ userName = "User", onLogout }: TopBarProps) {
         });
         if (res.ok) {
           const data = await res.json();
-          setIsPremium(data.premium === true);
+          const premiumExpiry =
+  data.premium_expiry   || data.premiumExpiry   ||
+  data.premium_until    || data.premiumUntil    ||
+  data.subscription_end || data.subscriptionEnd ||
+  data.expires_at       || data.expiresAt;
+
+const isActivePremium =
+  data.premium === true &&
+  (premiumExpiry ? new Date(premiumExpiry) > new Date() : true);
+
+setIsPremium(isActivePremium);
           const name = data.first_name || data.firstName || data.name || data.username
             || localStorage.getItem("user_name") || localStorage.getItem("name")
             || data.email?.split("@")[0] || userName;

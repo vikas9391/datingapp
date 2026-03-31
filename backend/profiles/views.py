@@ -11,6 +11,7 @@ from .managers import MySQLProfileManager as FirebaseProfileManager
 from admin_panel.models import PremiumPlan 
 from django.utils import timezone
 
+
 FREE_SWIPE_LIMIT = 3
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -38,30 +39,31 @@ def _sync_matches_count(profile: UserProfile) -> int:
 
 # ── swipe endpoints ────────────────────────────────────────────────────────────
 
-from admin_panel.models import PremiumPlan  # ADD this import at the top
-
-FREE_SWIPE_LIMIT = 3
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_swipe_count(request):
     try:
         profile = UserProfile.objects.get(user=request.user)
 
+        # ── Auto-reset if last swipe was on a previous calendar day ──────
+        now = timezone.now()
+        last_reset = profile.swipes_reset_at  # field must exist on model
+        if last_reset is None or last_reset.date() < now.date():
+            profile.swipes_used = 0
+            profile.swipes_reset_at = now
+            profile.save(update_fields=['swipes_used', 'swipes_reset_at'])
+
         is_premium = (
             profile.premium
-            and hasattr(profile, 'premium_expires_at')
             and profile.premium_expires_at
-            and profile.premium_expires_at > timezone.now()
+            and profile.premium_expires_at > now
         )
 
-        # Determine the effective daily limit for this user
-        effective_limit = None  # None = unlimited
+        effective_limit = None
         if is_premium:
             try:
                 plan = PremiumPlan.objects.get(name=profile.premium_plan)
-                effective_limit = plan.daily_swipe_limit  # None = unlimited
+                effective_limit = plan.daily_swipe_limit
             except PremiumPlan.DoesNotExist:
                 pass
         else:
@@ -74,13 +76,13 @@ def get_swipe_count(request):
             'swipes_remaining': (
                 max(0, effective_limit - swipes_used)
                 if effective_limit is not None
-                else None  # None means unlimited
+                else None
             ),
             'limit_reached': (
                 effective_limit is not None and swipes_used >= effective_limit
             ),
             'is_premium': is_premium,
-            'daily_limit': effective_limit,  # frontend can show "X of Y used"
+            'daily_limit': effective_limit,
         })
     except UserProfile.DoesNotExist:
         return Response({
@@ -90,7 +92,6 @@ def get_swipe_count(request):
             'is_premium': False,
             'daily_limit': FREE_SWIPE_LIMIT,
         })
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -177,12 +178,6 @@ def increment_swipe_count(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_profile(request):
-    """
-    GET /api/profile/
-    Returns the full profile for the authenticated user.
-    Syncs the live match count from the Match table on every call so the
-    frontend Settings page always shows an accurate number.
-    """
     try:
         profile = UserProfile.objects.select_related('user').get(user=request.user)
     except UserProfile.DoesNotExist:
@@ -191,12 +186,19 @@ def get_profile(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Keep UserProfile.matches in sync with the real Match table
+    # ── Auto-expire premium if subscription has lapsed ────────────────────
+    if (
+        profile.premium
+        and profile.premium_expires_at
+        and profile.premium_expires_at <= timezone.now()
+    ):
+        profile.premium = False
+        profile.save(update_fields=["premium", "updated_at"])
+
     _sync_matches_count(profile)
 
     serializer = UserProfileSerializer(profile)
     return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 @api_view(['POST', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
